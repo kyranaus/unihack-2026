@@ -235,8 +235,9 @@ export function drawOverlay(
   h: number,
   landmarks: Point[] | null,
   earBelowThreshold: boolean,
+  skipClear = false,
 ): void {
-  ctx.clearRect(0, 0, w, h);
+  if (!skipClear) ctx.clearRect(0, 0, w, h);
   if (!landmarks) return;
 
   // Face oval
