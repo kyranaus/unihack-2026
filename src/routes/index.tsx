@@ -10,7 +10,7 @@ export const Route = createFileRoute("/")({ component: App })
 const DRIVER_SCORE = 85
 const USERNAME = "Stevenphanny"
 const APP_URL = "https://kyranaus-unihack-2026.kyranmenezesaus.workers.dev/"
-const QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=ffffff&bgcolor=000000&data=${encodeURIComponent(APP_URL)}`
+const QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=000000&bgcolor=ffffff&data=${encodeURIComponent(APP_URL)}`
 
 // Brush-stroke reveal — each character pivots from the top like a loaded brush
 const brushContainer = {
@@ -53,12 +53,18 @@ function App() {
     <main className="min-h-screen bg-background text-foreground">
 
       {/* ── Desktop splash (hidden on mobile) ── */}
-      <div className="hidden md:flex min-h-screen flex-col items-center justify-center gap-10 px-8">
+      <div className="hidden md:flex min-h-screen flex-col items-center justify-center gap-10 px-8 pt-14">
         <BrandLogo />
         <div className="flex flex-col items-center gap-4">
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <img src={QR_SRC} alt="QR code to open BeeSafe on mobile" width={180} height={180} className="rounded-lg" />
-          </div>
+          {/* QR code */}
+          <img
+            src={QR_SRC}
+            alt="QR code to open BeeSafe on mobile"
+            width={180}
+            height={180}
+          />
+
+          {/* Disclaimer */}
           <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2">
             <Smartphone size={14} className="text-primary shrink-0" />
             <p className="text-xs text-muted-foreground">

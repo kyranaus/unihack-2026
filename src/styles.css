@@ -90,27 +90,23 @@ html {
 html.light {
   color-scheme: light;
 
-  --dashcam-yellow: #2563eb;   /* swap brand accent → blue */
-
   --background:              oklch(1    0     0);
   --foreground:              oklch(0.13 0.005 285);
   --card:                    oklch(0.97 0.002 285);
   --card-foreground:         oklch(0.13 0.005 285);
   --popover:                 oklch(0.97 0.002 285);
   --popover-foreground:      oklch(0.13 0.005 285);
-  --primary:                 oklch(0.52 0.21  258);   /* blue #2563eb */
-  --primary-foreground:      oklch(1    0     0);     /* white */
+  --primary:                 oklch(0.795 0.184 86.047); /* yellow #eab308 */
+  --primary-foreground:      oklch(0.09  0     0);      /* black */
   --secondary:               oklch(0.93 0.005 285);
   --secondary-foreground:    oklch(0.13 0.005 285);
   --muted:                   oklch(0.93 0.005 285);
   --muted-foreground:        oklch(0.52 0.014 286);
-  --accent:                  oklch(0.52 0.21  258);
-  --accent-foreground:       oklch(1    0     0);
+  --accent:                  oklch(0.795 0.184 86.047);
+  --accent-foreground:       oklch(0.09  0     0);
   --border:                  oklch(0.88 0.005 285);
   --input:                   oklch(0.88 0.005 285);
-  --ring:                    oklch(0.52 0.21  258);
-
-  --component-active-color-default: #2563eb;
+  --ring:                    oklch(0.795 0.184 86.047);
 }
 
 html,
@@ -135,12 +131,19 @@ body,
 
 /* ─── InteractiveMenu component tokens ───────────────────── */
 :root {
-  --component-inactive-color:       var(--muted-foreground);
-  --component-bg:                   var(--card);
-  --component-shadow:               var(--border);
-  --component-active-bg:            var(--secondary);
-  --component-line-inactive-color:  var(--border);
+  --component-inactive-color:       #6b7280;
+  --component-bg:                   #1a1a1a;
+  --component-shadow:               rgba(255,255,255,0.08);
+  --component-active-bg:            transparent;
+  --component-line-inactive-color:  #374151;
   --component-active-color-default: var(--dashcam-yellow);
+}
+
+html.light {
+  --component-bg:                   #ffffff;
+  --component-shadow:               rgba(0,0,0,0.10);
+  --component-inactive-color:       #9ca3af;
+  --component-line-inactive-color:  #e5e7eb;
 }
 
 /* ─── InteractiveMenu layout ─────────────────────────────── */
