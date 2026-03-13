@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { useState, useEffect, useRef } from "react"
+import { usePollyTTS } from "#/lib/use-polly-tts"
 
 export const Route = createFileRoute("/emergency")({ component: Emergency })
 
@@ -38,6 +39,8 @@ function Emergency() {
   const [isCalling, setIsCalling] = useState(false)
   const [callDuration, setCallDuration] = useState(0)
 
+  const { speak, stop: stopTTS, status: ttsStatus } = usePollyTTS()
+
   const emergencyMessage = `Hi, my name is ${DEMO_NAME}. I have been in an accident on the road at ${DEMO_LOCATION} and require emergency assistance.`
   const typedText = useTypewriter(emergencyMessage, isCalling, 60)
 
@@ -54,6 +57,14 @@ function Emergency() {
   }, [showNotification, countdown, isCalling])
 
   useEffect(() => {
+    if (isCalling) {
+      speak(emergencyMessage)
+    } else {
+      stopTTS()
+    }
+  }, [isCalling])
+
+  useEffect(() => {
     if (!isCalling) return
     const interval = setInterval(() => {
       setCallDuration((prev) => prev + 1)
@@ -68,6 +79,7 @@ function Emergency() {
   }
 
   const dismissNotification = () => {
+    stopTTS()
     setShowNotification(false)
     setCountdown(10)
     setIsCalling(false)
@@ -94,6 +106,26 @@ function Emergency() {
                 {typedText}
                 <span className="inline-block w-0.5 h-5 bg-white ml-0.5 align-middle animate-pulse" />
               </p>
+              <div className="mt-3 flex items-center gap-2 text-xs text-zinc-400">
+                {ttsStatus === "loading" && (
+                  <>
+                    <span className="inline-block h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
+                    Generating speech...
+                  </>
+                )}
+                {ttsStatus === "playing" && (
+                  <>
+                    <span className="inline-block h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+                    Speaking to operator
+                  </>
+                )}
+                {ttsStatus === "error" && (
+                  <>
+                    <span className="inline-block h-2 w-2 rounded-full bg-red-400" />
+                    Voice unavailable — text sent
+                  </>
+                )}
+              </div>
             </div>
 
             <button
