@@ -21,7 +21,7 @@ function App() {
 
         <div className="flex flex-col items-center gap-4">
           {/* QR code */}
-          <div className="rounded-2xl border border-zinc-800 bg-black p-4">
+          <div className="rounded-2xl border border-border bg-card p-4">
             <img
               src={QR_SRC}
               alt="QR code to open BeeSafe on mobile"
@@ -32,9 +32,9 @@ function App() {
           </div>
 
           {/* Disclaimer */}
-          <div className="flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-4 py-2">
-            <Smartphone size={14} className="text-yellow-400 shrink-0" />
-            <p className="text-xs text-zinc-400">
+          <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2">
+            <Smartphone size={14} className="text-primary shrink-0" />
+            <p className="text-xs text-muted-foreground">
               Best experienced on mobile — scan to open on your phone
             </p>
           </div>

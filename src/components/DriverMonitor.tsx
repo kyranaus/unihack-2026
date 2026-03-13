@@ -218,11 +218,11 @@ export default function DriverMonitor() {
   // --- Error state ---
   if (error) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black p-6">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-6">
         <div className="rounded-2xl border border-red-800 bg-red-950 p-6 text-center">
           <p className="text-lg font-semibold text-red-400">Camera Error</p>
           <p className="mt-2 text-sm text-red-300">{error}</p>
-          <p className="mt-2 text-xs text-white/40">
+          <p className="mt-2 text-xs text-muted-foreground">
             Allow camera access and ensure no other app is using the webcam.
           </p>
         </div>
@@ -232,7 +232,7 @@ export default function DriverMonitor() {
 
   return (
     // Full-screen dark container
-    <div className="relative flex min-h-screen w-full flex-col bg-black">
+    <div className="relative flex min-h-screen w-full flex-col bg-background">
 
       {/* ── Camera feed fills entire screen ── */}
       <div className="relative flex-1 overflow-hidden">
@@ -278,7 +278,7 @@ export default function DriverMonitor() {
             </div>
 
             {/* FPS */}
-            <div className="rounded-md bg-black/50 px-2.5 py-1 font-mono text-xs text-white/60 backdrop-blur-sm">
+            <div className="rounded-md bg-background/50 px-2.5 py-1 font-mono text-xs text-foreground/60 backdrop-blur-sm">
               {fps} FPS
             </div>
           </div>
@@ -303,7 +303,7 @@ export default function DriverMonitor() {
 
       {/* ── Bottom metrics strip ── */}
       {!loading && (
-        <div className="z-10 flex items-stretch divide-x divide-white/10 bg-black/80 backdrop-blur-md">
+        <div className="z-10 flex items-stretch divide-x divide-foreground/10 bg-background/80 backdrop-blur-md">
           <MetricPill
             label="Eyes"
             value={`${eyePct}%`}
@@ -362,13 +362,13 @@ function MetricPill({
 }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-2 py-3">
-      <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-foreground/40">
         {label}
       </span>
       <span className="mt-0.5 text-base font-bold leading-tight" style={{ color }}>
         {value}
       </span>
-      <span className="text-[10px] text-white/30">{sub}</span>
+      <span className="text-[10px] text-foreground/30">{sub}</span>
     </div>
   );
 }

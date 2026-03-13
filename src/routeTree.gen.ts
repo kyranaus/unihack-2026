@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ReplayRouteImport } from './routes/replay'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as DriverMonitorRouteImport } from './routes/driver-monitor'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
@@ -20,6 +21,11 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 const ReplayRoute = ReplayRouteImport.update({
   id: '/replay',
   path: '/replay',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DriverMonitorRoute = DriverMonitorRouteImport.update({
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/driver-monitor': typeof DriverMonitorRoute
+  '/profile': typeof ProfileRoute
   '/replay': typeof ReplayRoute
   '/api/$': typeof ApiSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/driver-monitor': typeof DriverMonitorRoute
+  '/profile': typeof ProfileRoute
   '/replay': typeof ReplayRoute
   '/api/$': typeof ApiSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/driver-monitor': typeof DriverMonitorRoute
+  '/profile': typeof ProfileRoute
   '/replay': typeof ReplayRoute
   '/api/$': typeof ApiSplatRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/driver-monitor'
+    | '/profile'
     | '/replay'
     | '/api/$'
     | '/api/auth/$'
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/driver-monitor'
+    | '/profile'
     | '/replay'
     | '/api/$'
     | '/api/auth/$'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/driver-monitor'
+    | '/profile'
     | '/replay'
     | '/api/$'
     | '/api/auth/$'
@@ -115,6 +127,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   DriverMonitorRoute: typeof DriverMonitorRoute
+  ProfileRoute: typeof ProfileRoute
   ReplayRoute: typeof ReplayRoute
   ApiSplatRoute: typeof ApiSplatRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -128,6 +141,13 @@ declare module '@tanstack/react-router' {
       path: '/replay'
       fullPath: '/replay'
       preLoaderRoute: typeof ReplayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/driver-monitor': {
@@ -179,6 +199,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   DriverMonitorRoute: DriverMonitorRoute,
+  ProfileRoute: ProfileRoute,
   ReplayRoute: ReplayRoute,
   ApiSplatRoute: ApiSplatRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
