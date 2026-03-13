@@ -42,8 +42,8 @@ export function BrandLogo() {
           <motion.span
             key={`safe-${i}`}
             variants={letterVariants}
-            className="text-6xl font-black text-primary"
-            style={{ textShadow: "0 0 32px rgba(234,179,8,0.4)" }}
+            className="text-6xl font-black"
+            style={{ color: "var(--dashcam-yellow)", textShadow: "0 0 32px rgba(234,179,8,0.4)" }}
           >
             {char}
           </motion.span>
@@ -55,7 +55,7 @@ export function BrandLogo() {
         initial={{ scaleX: 0, opacity: 0 }}
         animate={{ scaleX: 1, opacity: 1 }}
         transition={{ delay: 0.85, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className="h-px w-48 origin-left rounded-full bg-primary"
+        className="h-px w-48 origin-left rounded-full bg-[var(--dashcam-yellow)]"
       />
 
       {/* Tagline fades in last */}

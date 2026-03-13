@@ -36,7 +36,7 @@ export function Navbar() {
             items={navItems}
             activeIndex={activeIndex}
             onItemClick={handleItemClick}
-            accentColor="var(--dashcam-yellow)"
+            accentColor="#ffffff"
           />
         </div>
       </div>
