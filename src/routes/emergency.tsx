@@ -72,6 +72,22 @@ function Emergency() {
     return () => clearInterval(interval)
   }, [isCalling])
 
+  // Auto-start when launched from crash detection flow.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      const fromCrash = window.sessionStorage.getItem("dashcam.crashTriggered")
+      if (fromCrash === "1") {
+        window.sessionStorage.removeItem("dashcam.crashTriggered")
+        setShowNotification(true)
+        setCountdown(10)
+        setIsCalling(false)
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [])
+
   const triggerEmergency = () => {
     setShowNotification(true)
     setCountdown(10)
