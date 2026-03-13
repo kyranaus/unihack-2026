@@ -92,12 +92,6 @@ export default function DriverMonitor() {
         video.srcObject = stream;
         await video.play();
 
-        const canvas = canvasRef.current;
-        if (canvas) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-        }
-
         setLoading(false);
         detect();
       } catch (err) {
@@ -181,13 +175,24 @@ export default function DriverMonitor() {
         }
       }
 
-      drawOverlay(
-        ctx,
-        canvas.width,
-        canvas.height,
-        landmarks,
-        s.smoothedEAR < CONFIG.EAR_THRESHOLD,
-      );
+      // Match the canvas to display pixels and apply object-cover transform
+      const cw = canvas.clientWidth;
+      const ch = canvas.clientHeight;
+      if (cw > 0 && ch > 0 && (canvas.width !== cw || canvas.height !== ch)) {
+        canvas.width = cw;
+        canvas.height = ch;
+      }
+      const vw = video.videoWidth || 1;
+      const vh = video.videoHeight || 1;
+      const coverScale = Math.max(cw / vw, ch / vh);
+      const ox = (vw * coverScale - cw) / 2;
+      const oy = (vh * coverScale - ch) / 2;
+      ctx.clearRect(0, 0, cw, ch);
+      ctx.save();
+      ctx.translate(-ox, -oy);
+      ctx.scale(coverScale, coverScale);
+      drawOverlay(ctx, vw, vh, landmarks, s.smoothedEAR < CONFIG.EAR_THRESHOLD, true);
+      ctx.restore();
 
       if (now - s.lastRenderTime > CONFIG.RENDER_INTERVAL_MS) {
         setDriverState(s.currentState);
