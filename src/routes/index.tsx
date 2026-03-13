@@ -9,7 +9,7 @@ export const Route = createFileRoute("/")({ component: App })
 const DRIVER_SCORE = 85
 const USERNAME = "Stevenphanny"
 const APP_URL = "https://kyranaus-unihack-2026.kyranmenezesaus.workers.dev/"
-const QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=ffffff&bgcolor=000000&data=${encodeURIComponent(APP_URL)}`
+const QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=000000&bgcolor=ffffff&data=${encodeURIComponent(APP_URL)}`
 
 function App() {
   return (
@@ -21,15 +21,12 @@ function App() {
 
         <div className="flex flex-col items-center gap-4">
           {/* QR code */}
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <img
-              src={QR_SRC}
-              alt="QR code to open BeeSafe on mobile"
-              width={180}
-              height={180}
-              className="rounded-lg"
-            />
-          </div>
+          <img
+            src={QR_SRC}
+            alt="QR code to open BeeSafe on mobile"
+            width={180}
+            height={180}
+          />
 
           {/* Disclaimer */}
           <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2">

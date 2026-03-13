@@ -36,7 +36,7 @@ export function Navbar() {
             items={navItems}
             activeIndex={activeIndex}
             onItemClick={handleItemClick}
-            accentColor="#ffffff"
+            accentColor="#eab308"
           />
         </div>
       </div>
