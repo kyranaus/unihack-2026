@@ -21,6 +21,7 @@
     "db:seed": "dotenv -e .env.local -- prisma db seed"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.32",
     "@orpc/client": "^1.13.6",
     "@orpc/json-schema": "^1.13.6",
     "@orpc/openapi": "^1.13.6",
