@@ -1,3 +1,7 @@
+// src/components/home/SessionCards.tsx
+import { Card, CardContent } from "#/components/ui/card"
+import { Badge } from "#/components/ui/badge"
+
 const DUMMY_SESSIONS = [
   {
     id: "today-city",
@@ -27,24 +31,21 @@ const DUMMY_SESSIONS = [
 
 export function SessionCards() {
   return (
-    <section className="mt-6 flex-1 overflow-y-auto pb-4">
+    <section className="flex-1 overflow-y-auto pb-4">
       <div className="space-y-3">
         {DUMMY_SESSIONS.map((session) => (
-          <article
-            key={session.id}
-            className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold">{session.title}</h2>
-              <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-300">
-                {session.tag}
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-zinc-400">{session.subtitle}</p>
-            <p className="mt-2 text-[11px] text-zinc-500">
-              Coming soon: AI summaries, crash reports, and learner logs.
-            </p>
-          </article>
+          <Card key={session.id}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold">{session.title}</h2>
+                <Badge variant="outline">{session.tag}</Badge>
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">{session.subtitle}</p>
+              <p className="mt-2 text-[11px] text-muted-foreground/60">
+                Coming soon: AI summaries, crash reports, and learner logs.
+              </p>
+            </CardContent>
+          </Card>
         ))}
       </div>
     </section>

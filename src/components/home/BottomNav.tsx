@@ -1,117 +1,48 @@
+// src/components/home/BottomNav.tsx
+import { Camera, FileText, User } from "lucide-react"
+import { cn } from "#/lib/utils"
+
 type BottomNavButtonProps = {
   label: string
-  children: React.ReactNode
+  icon: React.ReactNode
+  active?: boolean
 }
 
-function BottomNavButton({ label, children }: BottomNavButtonProps) {
+function BottomNavButton({ label, icon, active }: BottomNavButtonProps) {
   return (
     <button
       type="button"
-      className="flex flex-col items-center gap-1 text-xs text-zinc-400"
+      className="flex flex-col items-center gap-1.5"
     >
-      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-800 text-zinc-50">
-        {children}
+      <span
+        className={cn(
+          "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
+          active
+            ? "bg-primary text-primary-foreground"
+            : "bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground",
+        )}
+      >
+        {icon}
       </span>
-      <span className="text-[10px] uppercase tracking-[0.16em]">{label}</span>
+      <span
+        className={cn(
+          "text-[10px] font-medium uppercase tracking-widest transition-colors",
+          active ? "text-primary" : "text-muted-foreground",
+        )}
+      >
+        {label}
+      </span>
     </button>
   )
 }
 
 export function BottomNav() {
   return (
-    <nav className="sticky bottom-0 left-0 right-0 mt-3">
-      <div className="mx-auto flex max-w-md items-center justify-around rounded-2xl border border-zinc-800 bg-zinc-900/80 px-6 py-3 backdrop-blur">
-        <BottomNavButton label="Camera">
-          <svg
-            className="h-5 w-5"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <rect
-              x="3"
-              y="7"
-              width="18"
-              height="12"
-              rx="2"
-              stroke="currentColor"
-              strokeWidth="1.6"
-            />
-            <path
-              d="M9 7L10.2 5.4C10.52 4.96 11.04 4.7 11.6 4.7H12.4C12.96 4.7 13.48 4.96 13.8 5.4L15 7"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-            />
-            <circle
-              cx="12"
-              cy="13"
-              r="3"
-              stroke="currentColor"
-              strokeWidth="1.6"
-            />
-          </svg>
-        </BottomNavButton>
-
-        <BottomNavButton label="Sessions">
-          <svg
-            className="h-5 w-5"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <rect
-              x="4"
-              y="3"
-              width="14"
-              height="18"
-              rx="2"
-              stroke="currentColor"
-              strokeWidth="1.6"
-            />
-            <path
-              d="M8 7H14"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-            />
-            <path
-              d="M8 11H14"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-            />
-            <path
-              d="M8 15H12"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-            />
-          </svg>
-        </BottomNavButton>
-
-        <BottomNavButton label="Profile">
-          <svg
-            className="h-5 w-5"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <circle
-              cx="12"
-              cy="9"
-              r="3.2"
-              stroke="currentColor"
-              strokeWidth="1.6"
-            />
-            <path
-              d="M6 19C6.8 16.5 9.2 15 12 15C14.8 15 17.2 16.5 18 19"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-            />
-          </svg>
-        </BottomNavButton>
+    <nav className="sticky bottom-0 mt-3 pb-safe">
+      <div className="flex items-center justify-around rounded-2xl border border-border bg-card/90 px-6 py-3 backdrop-blur">
+        <BottomNavButton label="Camera" icon={<Camera className="h-5 w-5" />} active />
+        <BottomNavButton label="Sessions" icon={<FileText className="h-5 w-5" />} />
+        <BottomNavButton label="Profile" icon={<User className="h-5 w-5" />} />
       </div>
     </nav>
   )
