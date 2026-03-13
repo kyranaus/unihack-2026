@@ -2,16 +2,47 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { DriverScoreCircle } from "#/components/home/DriverScoreCircle"
 import { BrandLogo } from "#/components/home/BrandLogo"
+import { Smartphone } from "lucide-react"
 
 export const Route = createFileRoute("/")({ component: App })
 
 const DRIVER_SCORE = 85
 const USERNAME = "Stevenphanny"
+const APP_URL = "https://kyranaus-unihack-2026.kyranmenezesaus.workers.dev/"
+const QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=ffffff&bgcolor=000000&data=${encodeURIComponent(APP_URL)}`
 
 function App() {
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen max-w-md flex-col px-4 pb-4 pt-10">
+
+      {/* ── Desktop splash (hidden on mobile) ── */}
+      <div className="hidden md:flex min-h-screen flex-col items-center justify-center gap-10 px-8">
+        <BrandLogo />
+
+        <div className="flex flex-col items-center gap-4">
+          {/* QR code */}
+          <div className="rounded-2xl border border-zinc-800 bg-black p-4">
+            <img
+              src={QR_SRC}
+              alt="QR code to open BeeSafe on mobile"
+              width={180}
+              height={180}
+              className="rounded-lg"
+            />
+          </div>
+
+          {/* Disclaimer */}
+          <div className="flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-4 py-2">
+            <Smartphone size={14} className="text-yellow-400 shrink-0" />
+            <p className="text-xs text-zinc-400">
+              Best experienced on mobile — scan to open on your phone
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Mobile app (hidden on desktop) ── */}
+      <div className="md:hidden mx-auto flex min-h-screen max-w-md flex-col px-4 pb-4 pt-10">
 
         {/* Top bar — score left, user right */}
         <header className="mb-6 flex items-center justify-between">
