@@ -11,7 +11,7 @@ const USERNAME = "Stevenphanny"
 function App() {
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen max-w-md flex-col px-4 pb-4 pt-10">
+      <div className="mx-auto flex min-h-screen max-w-md flex-col px-4 pb-28 pt-10">
 
         {/* Top bar — score left, user right */}
         <header className="mb-6 flex items-center justify-between">

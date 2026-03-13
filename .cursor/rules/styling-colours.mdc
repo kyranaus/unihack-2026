@@ -1,0 +1,38 @@
+---
+description: Enforce DashCam design tokens and CLAUDE.md rules on every change
+alwaysApply: true
+---
+
+# DashCam – Colour & Style Consistency
+
+Always use CSS variables from `src/styles.css`. Never hardcode hex, oklch, or arbitrary Tailwind colour classes.
+
+## Brand tokens
+- Yellow: `var(--dashcam-yellow)` → Tailwind: `text-primary`, `bg-primary`
+- Black: `var(--dashcam-black)` → Tailwind: `bg-background`, `text-primary-foreground`
+
+## Semantic tokens (prefer Tailwind class)
+
+| Token | Tailwind class |
+|-------|----------------|
+| --background | bg-background |
+| --foreground | text-foreground |
+| --card | bg-card |
+| --border | border-border |
+| --muted-foreground | text-muted-foreground |
+| --destructive | bg-destructive / text-destructive |
+| --accent | bg-accent / text-accent-foreground |
+| --secondary | bg-secondary / text-secondary-foreground |
+| --ring | ring / outline-ring |
+
+## Fonts
+- Body: `font-sans` (Manrope)
+- Brand headings: `font-brand` (Orbitron)
+
+## CLAUDE.md checklist (review before every change)
+- Responsive UI, minimal styling
+- No changes outside scope — ask first
+- Split files >200 lines into components
+- No unrequested functionality
+- Show only changed code, never the full file
+- Include file path comment at the top of every code block
