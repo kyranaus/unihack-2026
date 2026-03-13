@@ -4,7 +4,7 @@ import { Clock, Home, User, Video } from "lucide-react";
 
 const tabs = [
   { id: "home", label: "Home", icon: Home, to: "/" },
-  { id: "record", label: "Record", icon: Video, to: "/record" },
+  { id: "record", label: "Monitor", icon: Video, to: "/driver-monitor" },
   { id: "replay", label: "Replay", icon: Clock, to: "/replay" },
   { id: "profile", label: "Profile", icon: User, to: "/profile" },
 ] as const;
