@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as EmergencyRouteImport } from './routes/emergency'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiTtsRouteImport } from './routes/api/tts'
 import { Route as ApiSplatRouteImport } from './routes/api.$'
 import { Route as ApiRpcSplatRouteImport } from './routes/api.rpc.$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -29,6 +30,11 @@ const AboutRoute = AboutRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTtsRoute = ApiTtsRouteImport.update({
+  id: '/api/tts',
+  path: '/api/tts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSplatRoute = ApiSplatRouteImport.update({
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/emergency': typeof EmergencyRoute
   '/api/$': typeof ApiSplatRoute
+  '/api/tts': typeof ApiTtsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/emergency': typeof EmergencyRoute
   '/api/$': typeof ApiSplatRoute
+  '/api/tts': typeof ApiTtsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
 }
@@ -69,6 +77,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/emergency': typeof EmergencyRoute
   '/api/$': typeof ApiSplatRoute
+  '/api/tts': typeof ApiTtsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
 }
@@ -79,16 +88,25 @@ export interface FileRouteTypes {
     | '/about'
     | '/emergency'
     | '/api/$'
+    | '/api/tts'
     | '/api/auth/$'
     | '/api/rpc/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/emergency' | '/api/$' | '/api/auth/$' | '/api/rpc/$'
+  to:
+    | '/'
+    | '/about'
+    | '/emergency'
+    | '/api/$'
+    | '/api/tts'
+    | '/api/auth/$'
+    | '/api/rpc/$'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/emergency'
     | '/api/$'
+    | '/api/tts'
     | '/api/auth/$'
     | '/api/rpc/$'
   fileRoutesById: FileRoutesById
@@ -98,6 +116,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   EmergencyRoute: typeof EmergencyRoute
   ApiSplatRoute: typeof ApiSplatRoute
+  ApiTtsRoute: typeof ApiTtsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiRpcSplatRoute: typeof ApiRpcSplatRoute
 }
@@ -123,6 +142,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/tts': {
+      id: '/api/tts'
+      path: '/api/tts'
+      fullPath: '/api/tts'
+      preLoaderRoute: typeof ApiTtsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/$': {
@@ -154,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   EmergencyRoute: EmergencyRoute,
   ApiSplatRoute: ApiSplatRoute,
+  ApiTtsRoute: ApiTtsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiRpcSplatRoute: ApiRpcSplatRoute,
 }
