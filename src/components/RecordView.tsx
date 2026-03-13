@@ -234,7 +234,7 @@ export default function RecordView() {
   }
 
   return (
-    <div className="flex h-[100dvh] flex-col bg-black">
+    <div className="flex h-dvh flex-col bg-black pb-[88px]">
       {/* Title */}
       <div
         className="flex flex-none items-center justify-center pb-2"
@@ -268,28 +268,32 @@ export default function RecordView() {
           </div>
         )}
 
-        {/* Top-left: status badge OR rec indicator */}
+        {/* Top bar: status badge centered + FPS right */}
         {!loading && (
-          <div className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between px-3 pt-3">
-            {isRecording ? (
-              <div className="flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                <span className="font-mono text-xs font-bold text-white">
-                  REC {recMins}:{recSecs}
-                </span>
-              </div>
-            ) : (
-              <div
-                className="rounded-full border px-3 py-1 text-xs font-bold tracking-widest backdrop-blur-md transition-colors duration-300"
-                style={{
-                  borderColor: display.border,
-                  color: display.color,
-                  backgroundColor: display.bg,
-                }}
-              >
-                {display.label}
-              </div>
-            )}
+          <div className="absolute left-0 right-0 top-0 z-10 flex items-center justify-end px-3 pt-3">
+            {/* Centered status / REC badge */}
+            <div className="absolute left-1/2 -translate-x-1/2">
+              {isRecording ? (
+                <div className="flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                  <span className="font-mono text-xs font-bold text-white">
+                    REC {recMins}:{recSecs}
+                  </span>
+                </div>
+              ) : (
+                <div
+                  className="rounded-full border px-3 py-1 text-xs font-bold tracking-widest backdrop-blur-md transition-colors duration-300"
+                  style={{
+                    borderColor: display.border,
+                    color: display.color,
+                    backgroundColor: display.bg,
+                  }}
+                >
+                  {display.label}
+                </div>
+              )}
+            </div>
+            {/* FPS — right */}
             <div className="rounded-md bg-black/40 px-2 py-1 font-mono text-xs text-white/40 backdrop-blur-sm">
               {fps} FPS
             </div>
@@ -335,10 +339,7 @@ export default function RecordView() {
       </div>
 
       {/* Controls */}
-      <div
-        className="flex flex-none flex-col items-center gap-3 py-4"
-        style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
-      >
+      <div className="flex flex-none flex-col items-center gap-3 py-4">
         {/* Record button */}
         <button
           onClick={() => setIsRecording((r) => !r)}
