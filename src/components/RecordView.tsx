@@ -13,12 +13,19 @@ import {
   ema,
   getHeadDirection,
 } from "#/lib/driver-monitor-utils";
+import { useRecording } from "#/hooks/useRecording";
+import { SaveRecordingDialog } from "#/components/SaveRecordingDialog";
+
+const MAX_RECORD_SECS = 5 * 60;
 
 const EAR_OPEN_REF = 0.32;
 
 export default function RecordView() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const { start: startRec, stop: stopRec, pending: pendingRec, clearPending } = useRecording(streamRef);
 
   const [driverState, setDriverState] = useState<DriverState>("NO_FACE");
   const [metrics, setMetrics] = useState<SmoothedMetrics>({ ear: 0, yaw: 1, pitch: 0.7 });
@@ -29,12 +36,21 @@ export default function RecordView() {
   const [recSeconds, setRecSeconds] = useState(0);
   const [activeCamera, setActiveCamera] = useState<"front" | "back">("front");
 
-  // REC timer
+  // REC timer + auto-stop at 5 min
   useEffect(() => {
     if (!isRecording) { setRecSeconds(0); return; }
-    const id = setInterval(() => setRecSeconds((s) => s + 1), 1000);
+    const id = setInterval(() => setRecSeconds((s) => {
+      if (s + 1 >= MAX_RECORD_SECS) { setIsRecording(false); return 0; }
+      return s + 1;
+    }), 1000);
     return () => clearInterval(id);
   }, [isRecording]);
+
+  // Start/stop MediaRecorder when isRecording changes
+  useEffect(() => {
+    if (isRecording) startRec();
+    else stopRec();
+  }, [isRecording, startRec, stopRec]);
 
   useEffect(() => {
     let animFrameId: number;
@@ -75,6 +91,7 @@ export default function RecordView() {
           video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
         });
         if (disposed) { stream.getTracks().forEach((t) => t.stop()); return; }
+        streamRef.current = stream;
         const video = videoRef.current;
         if (!video) return;
         video.srcObject = stream;
@@ -181,6 +198,7 @@ export default function RecordView() {
     init();
     return () => {
       disposed = true;
+      streamRef.current = null;
       cancelAnimationFrame(animFrameId);
       if (stream) stream.getTracks().forEach((t) => t.stop());
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -216,7 +234,7 @@ export default function RecordView() {
   }
 
   return (
-    <div className="flex h-[100dvh] flex-col bg-black">
+    <div className="flex h-dvh flex-col bg-black pb-[88px]">
       {/* Title */}
       <div
         className="flex flex-none items-center justify-center pb-2"
@@ -250,28 +268,32 @@ export default function RecordView() {
           </div>
         )}
 
-        {/* Top-left: status badge OR rec indicator */}
+        {/* Top bar: status badge centered + FPS right */}
         {!loading && (
-          <div className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between px-3 pt-3">
-            {isRecording ? (
-              <div className="flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                <span className="font-mono text-xs font-bold text-white">
-                  REC {recMins}:{recSecs}
-                </span>
-              </div>
-            ) : (
-              <div
-                className="rounded-full border px-3 py-1 text-xs font-bold tracking-widest backdrop-blur-md transition-colors duration-300"
-                style={{
-                  borderColor: display.border,
-                  color: display.color,
-                  backgroundColor: display.bg,
-                }}
-              >
-                {display.label}
-              </div>
-            )}
+          <div className="absolute left-0 right-0 top-0 z-10 flex items-center justify-end px-3 pt-3">
+            {/* Centered status / REC badge */}
+            <div className="absolute left-1/2 -translate-x-1/2">
+              {isRecording ? (
+                <div className="flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                  <span className="font-mono text-xs font-bold text-white">
+                    REC {recMins}:{recSecs}
+                  </span>
+                </div>
+              ) : (
+                <div
+                  className="rounded-full border px-3 py-1 text-xs font-bold tracking-widest backdrop-blur-md transition-colors duration-300"
+                  style={{
+                    borderColor: display.border,
+                    color: display.color,
+                    backgroundColor: display.bg,
+                  }}
+                >
+                  {display.label}
+                </div>
+              )}
+            </div>
+            {/* FPS — right */}
             <div className="rounded-md bg-black/40 px-2 py-1 font-mono text-xs text-white/40 backdrop-blur-sm">
               {fps} FPS
             </div>
@@ -317,14 +339,12 @@ export default function RecordView() {
       </div>
 
       {/* Controls */}
-      <div
-        className="flex flex-none flex-col items-center gap-3 py-4"
-        style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
-      >
+      <div className="flex flex-none flex-col items-center gap-3 py-4">
         {/* Record button */}
         <button
           onClick={() => setIsRecording((r) => !r)}
-          className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-white active:scale-95 transition-transform"
+          disabled={loading}
+          className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-white active:scale-95 transition-transform disabled:opacity-30"
           style={{ background: "transparent" }}
           aria-label={isRecording ? "Stop recording" : "Start recording"}
         >
@@ -348,6 +368,8 @@ export default function RecordView() {
           ))}
         </div>
       </div>
+
+      {pendingRec && <SaveRecordingDialog pending={pendingRec} onDone={clearPending} />}
     </div>
   );
 }
