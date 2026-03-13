@@ -5,6 +5,7 @@ import {
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
+import { Navbar } from '../components/Navbar'
 
 import StoreDevtools from '../lib/demo-store-devtools'
 
@@ -53,6 +54,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-yellow-400/30">
         <TanStackQueryProvider>
           {children}
+          <Footer />
           <TanStackDevtools
             config={{
               position: 'bottom-right',
