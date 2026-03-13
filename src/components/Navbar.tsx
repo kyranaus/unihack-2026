@@ -23,15 +23,20 @@ export function Navbar() {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 flex justify-center pb-6 px-4 pointer-events-none z-50">
-      <div className="pointer-events-auto w-full max-w-sm">
-        <InteractiveMenu
-          items={navItems}
-          activeIndex={activeIndex}
-          onItemClick={handleItemClick}
-          accentColor="var(--dashcam-yellow)"
-        />
+    <>
+      {/* Gradient fade — masks content scrolling under the nav */}
+      <div className="fixed bottom-0 left-0 right-0 h-32 pointer-events-none z-40 bg-gradient-to-t from-background to-transparent" />
+
+      <div className="fixed bottom-0 left-0 right-0 flex justify-center pb-6 px-4 pointer-events-none z-50">
+        <div className="pointer-events-auto w-full max-w-sm">
+          <InteractiveMenu
+            items={navItems}
+            activeIndex={activeIndex}
+            onItemClick={handleItemClick}
+            accentColor="var(--dashcam-yellow)"
+          />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
