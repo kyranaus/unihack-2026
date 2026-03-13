@@ -90,8 +90,6 @@ html {
 html.light {
   color-scheme: light;
 
-  --dashcam-yellow: #2563eb;   /* swap brand accent → blue */
-
   --background:              oklch(1    0     0);
   --foreground:              oklch(0.13 0.005 285);
   --card:                    oklch(0.97 0.002 285);
