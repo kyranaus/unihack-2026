@@ -33,19 +33,19 @@ function ReplayPage() {
   }, []);
 
   return (
-    <main className="h-screen overflow-hidden bg-black text-white">
+    <main className="h-screen overflow-hidden bg-background text-foreground">
       <div className="mx-auto flex h-full max-w-md flex-col px-4 pt-10 pb-32">
         <header className="mb-4 shrink-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             DashCam
           </p>
           <h1 className="mt-1 text-2xl font-semibold">Replay</h1>
         </header>
 
         {/* Video placeholder */}
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-zinc-900">
+        <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-card">
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-sm text-zinc-600">No footage selected</span>
+            <span className="text-sm text-muted-foreground">No footage selected</span>
           </div>
           {/* Play/pause overlay */}
           <button
@@ -70,21 +70,21 @@ function ReplayPage() {
             onMouseMove={(e) => e.buttons === 1 && scrubTo(e)}
           >
             {/* Background */}
-            <div className="absolute inset-x-0 h-1 rounded-full bg-zinc-700" />
+            <div className="absolute inset-x-0 h-1 rounded-full bg-muted" />
             {/* Progress */}
             <div
-              className="absolute left-0 h-1 rounded-full bg-yellow-400"
+              className="absolute left-0 h-1 rounded-full bg-primary"
               style={{ width: `${getPercent()}%` }}
             />
             {/* Thumb */}
             <div
-              className="absolute h-4 w-4 -translate-x-1/2 rounded-full bg-white shadow"
+              className="absolute h-4 w-4 -translate-x-1/2 rounded-full bg-zinc-400 shadow"
               style={{ left: `${getPercent()}%` }}
             />
           </div>
 
           {/* Times */}
-          <div className="mt-1 flex justify-between text-xs text-zinc-400">
+          <div className="mt-1 flex justify-between text-xs text-muted-foreground">
             <span>{fmt(current)}</span>
             <span>{fmt(TOTAL)}</span>
           </div>
@@ -93,7 +93,7 @@ function ReplayPage() {
         {/* Drive report button */}
         <button
           onClick={() => setShowReport(true)}
-          className="mt-4 shrink-0 flex w-full items-center justify-center gap-2 rounded-2xl bg-zinc-800 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700"
+          className="mt-4 shrink-0 flex w-full items-center justify-center gap-2 rounded-2xl bg-card border border-border py-3 text-sm font-semibold text-foreground transition hover:bg-secondary"
         >
           <BarChart2 size={16} />
           View Drive Report

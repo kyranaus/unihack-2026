@@ -86,6 +86,33 @@ html {
   color-scheme: dark;
 }
 
+/* ─── Light mode overrides ───────────────────────────────── */
+html.light {
+  color-scheme: light;
+
+  --dashcam-yellow: #2563eb;   /* swap brand accent → blue */
+
+  --background:              oklch(1    0     0);
+  --foreground:              oklch(0.13 0.005 285);
+  --card:                    oklch(0.97 0.002 285);
+  --card-foreground:         oklch(0.13 0.005 285);
+  --popover:                 oklch(0.97 0.002 285);
+  --popover-foreground:      oklch(0.13 0.005 285);
+  --primary:                 oklch(0.52 0.21  258);   /* blue #2563eb */
+  --primary-foreground:      oklch(1    0     0);     /* white */
+  --secondary:               oklch(0.93 0.005 285);
+  --secondary-foreground:    oklch(0.13 0.005 285);
+  --muted:                   oklch(0.93 0.005 285);
+  --muted-foreground:        oklch(0.52 0.014 286);
+  --accent:                  oklch(0.52 0.21  258);
+  --accent-foreground:       oklch(1    0     0);
+  --border:                  oklch(0.88 0.005 285);
+  --input:                   oklch(0.88 0.005 285);
+  --ring:                    oklch(0.52 0.21  258);
+
+  --component-active-color-default: #2563eb;
+}
+
 html,
 body,
 #app {
