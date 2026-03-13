@@ -1,0 +1,29 @@
+{
+  "projectName": "unihack-2026",
+  "mode": "file-router",
+  "typescript": true,
+  "packageManager": "bun",
+  "includeExamples": false,
+  "tailwind": true,
+  "addOnOptions": {
+    "prisma": {
+      "database": "postgres"
+    }
+  },
+  "envVarValues": {},
+  "git": true,
+  "routerOnly": false,
+  "version": 1,
+  "framework": "react",
+  "chosenAddOns": [
+    "biome",
+    "nitro",
+    "shadcn",
+    "better-auth",
+    "prisma",
+    "ai",
+    "oRPC",
+    "store",
+    "tanstack-query"
+  ]
+}
