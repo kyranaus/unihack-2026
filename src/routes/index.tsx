@@ -16,7 +16,7 @@ function App() {
     <main className="min-h-screen bg-background text-foreground">
 
       {/* ── Desktop splash (hidden on mobile) ── */}
-      <div className="hidden md:flex min-h-screen flex-col items-center justify-center gap-10 px-8">
+      <div className="hidden md:flex min-h-screen flex-col items-center justify-center gap-10 px-8 pt-14">
         <BrandLogo />
 
         <div className="flex flex-col items-center gap-4">
