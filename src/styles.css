@@ -134,9 +134,16 @@ body,
   --component-inactive-color:       #6b7280;
   --component-bg:                   #1a1a1a;
   --component-shadow:               rgba(255,255,255,0.08);
-  --component-active-bg:            #2d2d2d;
+  --component-active-bg:            transparent;
   --component-line-inactive-color:  #374151;
   --component-active-color-default: var(--dashcam-yellow);
+}
+
+html.light {
+  --component-bg:                   #ffffff;
+  --component-shadow:               rgba(0,0,0,0.10);
+  --component-inactive-color:       #9ca3af;
+  --component-line-inactive-color:  #e5e7eb;
 }
 
 /* ─── InteractiveMenu layout ─────────────────────────────── */
