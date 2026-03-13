@@ -13,12 +13,19 @@ import {
   ema,
   getHeadDirection,
 } from "#/lib/driver-monitor-utils";
+import { useRecording } from "#/hooks/useRecording";
+import { SaveRecordingDialog } from "#/components/SaveRecordingDialog";
+
+const MAX_RECORD_SECS = 5 * 60;
 
 const EAR_OPEN_REF = 0.32;
 
 export default function RecordView() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const { start: startRec, stop: stopRec, pending: pendingRec, clearPending } = useRecording(streamRef);
 
   const [driverState, setDriverState] = useState<DriverState>("NO_FACE");
   const [metrics, setMetrics] = useState<SmoothedMetrics>({ ear: 0, yaw: 1, pitch: 0.7 });
@@ -29,12 +36,21 @@ export default function RecordView() {
   const [recSeconds, setRecSeconds] = useState(0);
   const [activeCamera, setActiveCamera] = useState<"front" | "back">("front");
 
-  // REC timer
+  // REC timer + auto-stop at 5 min
   useEffect(() => {
     if (!isRecording) { setRecSeconds(0); return; }
-    const id = setInterval(() => setRecSeconds((s) => s + 1), 1000);
+    const id = setInterval(() => setRecSeconds((s) => {
+      if (s + 1 >= MAX_RECORD_SECS) { setIsRecording(false); return 0; }
+      return s + 1;
+    }), 1000);
     return () => clearInterval(id);
   }, [isRecording]);
+
+  // Start/stop MediaRecorder when isRecording changes
+  useEffect(() => {
+    if (isRecording) startRec();
+    else stopRec();
+  }, [isRecording, startRec, stopRec]);
 
   useEffect(() => {
     let animFrameId: number;
@@ -75,6 +91,7 @@ export default function RecordView() {
           video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
         });
         if (disposed) { stream.getTracks().forEach((t) => t.stop()); return; }
+        streamRef.current = stream;
         const video = videoRef.current;
         if (!video) return;
         video.srcObject = stream;
@@ -181,6 +198,7 @@ export default function RecordView() {
     init();
     return () => {
       disposed = true;
+      streamRef.current = null;
       cancelAnimationFrame(animFrameId);
       if (stream) stream.getTracks().forEach((t) => t.stop());
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -324,7 +342,8 @@ export default function RecordView() {
         {/* Record button */}
         <button
           onClick={() => setIsRecording((r) => !r)}
-          className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-white active:scale-95 transition-transform"
+          disabled={loading}
+          className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-white active:scale-95 transition-transform disabled:opacity-30"
           style={{ background: "transparent" }}
           aria-label={isRecording ? "Stop recording" : "Start recording"}
         >
@@ -348,6 +367,8 @@ export default function RecordView() {
           ))}
         </div>
       </div>
+
+      {pendingRec && <SaveRecordingDialog pending={pendingRec} onDone={clearPending} />}
     </div>
   );
 }
