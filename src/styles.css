@@ -96,19 +96,17 @@ html.light {
   --card-foreground:         oklch(0.13 0.005 285);
   --popover:                 oklch(0.97 0.002 285);
   --popover-foreground:      oklch(0.13 0.005 285);
-  --primary:                 oklch(0.52 0.21  258);   /* blue #2563eb */
-  --primary-foreground:      oklch(1    0     0);     /* white */
+  --primary:                 oklch(0.795 0.184 86.047); /* yellow #eab308 */
+  --primary-foreground:      oklch(0.09  0     0);      /* black */
   --secondary:               oklch(0.93 0.005 285);
   --secondary-foreground:    oklch(0.13 0.005 285);
   --muted:                   oklch(0.93 0.005 285);
   --muted-foreground:        oklch(0.52 0.014 286);
-  --accent:                  oklch(0.52 0.21  258);
-  --accent-foreground:       oklch(1    0     0);
+  --accent:                  oklch(0.795 0.184 86.047);
+  --accent-foreground:       oklch(0.09  0     0);
   --border:                  oklch(0.88 0.005 285);
   --input:                   oklch(0.88 0.005 285);
-  --ring:                    oklch(0.52 0.21  258);
-
-  --component-active-color-default: #2563eb;
+  --ring:                    oklch(0.795 0.184 86.047);
 }
 
 html,

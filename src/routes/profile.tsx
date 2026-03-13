@@ -164,7 +164,7 @@ function ProfilePage() {
                 {light ? "Light mode" : "Dark mode"}
               </p>
               <p className="text-xs text-muted-foreground">
-                {light ? "White · Blue accent" : "Black · Yellow accent"}
+                {light ? "White · Yellow accent" : "Black · Yellow accent"}
               </p>
             </div>
           </div>
