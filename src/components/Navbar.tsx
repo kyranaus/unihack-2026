@@ -27,8 +27,11 @@ export function Navbar() {
       {/* Gradient fade — masks content scrolling under the nav */}
       <div className="fixed bottom-0 left-0 right-0 h-32 pointer-events-none z-40 bg-gradient-to-t from-background to-transparent" />
 
-      <div className="fixed bottom-0 left-0 right-0 flex justify-center pb-6 px-4 pointer-events-none z-50">
-        <div className="pointer-events-auto w-full max-w-sm">
+      <div
+        className="fixed bottom-0 left-0 right-0 flex justify-center px-4 pointer-events-none z-50"
+        style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+      >
+        <div className="pointer-events-auto w-full max-w-sm rounded-full shadow-[0_0_20px_rgba(0,0,0,0.3)] ring-1 ring-white/10">
           <InteractiveMenu
             items={navItems}
             activeIndex={activeIndex}

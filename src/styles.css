@@ -135,11 +135,11 @@ body,
 
 /* ─── InteractiveMenu component tokens ───────────────────── */
 :root {
-  --component-inactive-color:       var(--muted-foreground);
-  --component-bg:                   var(--card);
-  --component-shadow:               var(--border);
-  --component-active-bg:            var(--secondary);
-  --component-line-inactive-color:  var(--border);
+  --component-inactive-color:       #6b7280;
+  --component-bg:                   #1a1a1a;
+  --component-shadow:               rgba(255,255,255,0.08);
+  --component-active-bg:            #2d2d2d;
+  --component-line-inactive-color:  #374151;
   --component-active-color-default: var(--dashcam-yellow);
 }
 
