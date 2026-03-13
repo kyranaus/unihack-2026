@@ -1,7 +1,8 @@
 // src/routes/replay.tsx
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useCallback } from "react";
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, BarChart2 } from "lucide-react";
+import { DriverFeedback } from "#/components/DriverFeedback";
 
 export const Route = createFileRoute("/replay")({ component: ReplayPage });
 
@@ -16,6 +17,7 @@ function fmt(s: number) {
 function ReplayPage() {
   const [current, setCurrent] = useState(11 * 60 + 2); // start at 11:02
   const [playing, setPlaying] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
 
   const getPercent = () => (current / TOTAL) * 100;
@@ -87,7 +89,18 @@ function ReplayPage() {
             <span>{fmt(TOTAL)}</span>
           </div>
         </div>
+
+        {/* Drive report button */}
+        <button
+          onClick={() => setShowReport(true)}
+          className="mt-4 shrink-0 flex w-full items-center justify-center gap-2 rounded-2xl bg-zinc-800 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700"
+        >
+          <BarChart2 size={16} />
+          View Drive Report
+        </button>
       </div>
+
+      <DriverFeedback isOpen={showReport} onClose={() => setShowReport(false)} />
     </main>
   );
 }
