@@ -265,9 +265,9 @@ export default function DriverMonitor() {
 
       {/* ── Top bar: status badge + FPS ── */}
       {!loading && (
-        <div className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))]">
+        <div className="absolute left-0 right-0 top-0 z-10 flex items-center justify-end px-4 pt-[max(1rem,env(safe-area-inset-top))]">
           <div
-            className="rounded-full border px-4 py-1.5 text-sm font-bold tracking-widest backdrop-blur-md transition-colors duration-300"
+            className="rounded-full border px-4 py-1.5 text-sm font-bold tracking-widest backdrop-blur-md transition-colors duration-300 absolute left-1/2 -translate-x-1/2"
             style={{
               borderColor: display.border,
               color: display.color,
