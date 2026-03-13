@@ -9,7 +9,11 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ReplayRouteImport } from './routes/replay'
+import { Route as RecordRouteImport } from './routes/record'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as EmergencyRouteImport } from './routes/emergency'
+import { Route as DriverMonitorRouteImport } from './routes/driver-monitor'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiTtsRouteImport } from './routes/api/tts'
@@ -17,9 +21,29 @@ import { Route as ApiSplatRouteImport } from './routes/api.$'
 import { Route as ApiRpcSplatRouteImport } from './routes/api.rpc.$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
+const ReplayRoute = ReplayRouteImport.update({
+  id: '/replay',
+  path: '/replay',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecordRoute = RecordRouteImport.update({
+  id: '/record',
+  path: '/record',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EmergencyRoute = EmergencyRouteImport.update({
   id: '/emergency',
   path: '/emergency',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DriverMonitorRoute = DriverMonitorRouteImport.update({
+  id: '/driver-monitor',
+  path: '/driver-monitor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -56,7 +80,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/driver-monitor': typeof DriverMonitorRoute
   '/emergency': typeof EmergencyRoute
+  '/profile': typeof ProfileRoute
+  '/record': typeof RecordRoute
+  '/replay': typeof ReplayRoute
   '/api/$': typeof ApiSplatRoute
   '/api/tts': typeof ApiTtsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -65,7 +93,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/driver-monitor': typeof DriverMonitorRoute
   '/emergency': typeof EmergencyRoute
+  '/profile': typeof ProfileRoute
+  '/record': typeof RecordRoute
+  '/replay': typeof ReplayRoute
   '/api/$': typeof ApiSplatRoute
   '/api/tts': typeof ApiTtsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -75,7 +107,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/driver-monitor': typeof DriverMonitorRoute
   '/emergency': typeof EmergencyRoute
+  '/profile': typeof ProfileRoute
+  '/record': typeof RecordRoute
+  '/replay': typeof ReplayRoute
   '/api/$': typeof ApiSplatRoute
   '/api/tts': typeof ApiTtsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -86,7 +122,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/driver-monitor'
     | '/emergency'
+    | '/profile'
+    | '/record'
+    | '/replay'
     | '/api/$'
     | '/api/tts'
     | '/api/auth/$'
@@ -95,7 +135,11 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/driver-monitor'
     | '/emergency'
+    | '/profile'
+    | '/record'
+    | '/replay'
     | '/api/$'
     | '/api/tts'
     | '/api/auth/$'
@@ -104,7 +148,11 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/about'
+    | '/driver-monitor'
     | '/emergency'
+    | '/profile'
+    | '/record'
+    | '/replay'
     | '/api/$'
     | '/api/tts'
     | '/api/auth/$'
@@ -114,7 +162,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  DriverMonitorRoute: typeof DriverMonitorRoute
   EmergencyRoute: typeof EmergencyRoute
+  ProfileRoute: typeof ProfileRoute
+  RecordRoute: typeof RecordRoute
+  ReplayRoute: typeof ReplayRoute
   ApiSplatRoute: typeof ApiSplatRoute
   ApiTtsRoute: typeof ApiTtsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -123,11 +175,39 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/replay': {
+      id: '/replay'
+      path: '/replay'
+      fullPath: '/replay'
+      preLoaderRoute: typeof ReplayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/record': {
+      id: '/record'
+      path: '/record'
+      fullPath: '/record'
+      preLoaderRoute: typeof RecordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/emergency': {
       id: '/emergency'
       path: '/emergency'
       fullPath: '/emergency'
       preLoaderRoute: typeof EmergencyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/driver-monitor': {
+      id: '/driver-monitor'
+      path: '/driver-monitor'
+      fullPath: '/driver-monitor'
+      preLoaderRoute: typeof DriverMonitorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -178,7 +258,11 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  DriverMonitorRoute: DriverMonitorRoute,
   EmergencyRoute: EmergencyRoute,
+  ProfileRoute: ProfileRoute,
+  RecordRoute: RecordRoute,
+  ReplayRoute: ReplayRoute,
   ApiSplatRoute: ApiSplatRoute,
   ApiTtsRoute: ApiTtsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
