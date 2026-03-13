@@ -26,7 +26,7 @@ export function SaveRecordingDialog({ pending, onDone }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center pb-8 bg-black/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <div className="rounded-2xl bg-zinc-900 border border-white/10 px-6 py-5 mx-4 w-full max-w-sm">
         <p className="text-white font-bold text-base text-center">Save recording?</p>
         <p className="text-white/40 text-xs text-center mt-1">{mins}:{secs} · Add to replays</p>
