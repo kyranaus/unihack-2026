@@ -12,7 +12,6 @@ import {
   getHeadDirection,
 } from "#/lib/driver-monitor-utils";
 
-// EAR value that maps to "100% open" for display purposes.
 const EAR_OPEN_REF = 0.32;
 
 export default function DriverMonitor() {
@@ -175,7 +174,7 @@ export default function DriverMonitor() {
         }
       }
 
-      // Match the canvas to display pixels and apply object-cover transform
+      // Match canvas to display pixels and apply object-cover transform
       const cw = canvas.clientWidth;
       const ch = canvas.clientHeight;
       if (cw > 0 && ch > 0 && (canvas.width !== cw || canvas.height !== ch)) {
@@ -220,10 +219,14 @@ export default function DriverMonitor() {
   const eyePct = Math.min(100, Math.round((metrics.ear / EAR_OPEN_REF) * 100));
   const eyeOpen = metrics.ear >= CONFIG.EAR_THRESHOLD;
 
-  // --- Error state ---
+  const yawOk = Math.abs(metrics.yaw - 1.0) <= CONFIG.YAW_THRESHOLD;
+  const pitchOk =
+    metrics.pitch <= CONFIG.PITCH_DOWN_THRESHOLD &&
+    metrics.pitch >= CONFIG.PITCH_UP_THRESHOLD;
+
   if (error) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-6">
+      <div className="flex h-full flex-col items-center justify-center gap-4 bg-background p-6">
         <div className="rounded-2xl border border-red-800 bg-red-950 p-6 text-center">
           <p className="text-lg font-semibold text-red-400">Camera Error</p>
           <p className="mt-2 text-sm text-red-300">{error}</p>
@@ -236,126 +239,107 @@ export default function DriverMonitor() {
   }
 
   return (
-    // Full-screen dark container
-    <div className="relative flex h-full w-full flex-col bg-black">
+    <div className="relative h-full w-full overflow-hidden bg-black">
+      {/* Camera feed */}
+      <video
+        ref={videoRef}
+        className="absolute inset-0 h-full w-full object-cover"
+        style={{ transform: "scaleX(-1)" }}
+        playsInline
+        muted
+      />
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 h-full w-full"
+        style={{ transform: "scaleX(-1)" }}
+      />
 
-      {/* ── Camera feed fills entire screen ── */}
-      <div className="relative flex-1 overflow-hidden">
-        <video
-          ref={videoRef}
-          className="h-full w-full object-cover"
-          style={{ transform: "scaleX(-1)" }}
-          playsInline
-          muted
-        />
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 h-full w-full"
-          style={{ transform: "scaleX(-1)" }}
-        />
+      {/* Loading overlay */}
+      {loading && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/90">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+          <p className="mt-4 text-sm font-medium text-white">Loading face detection…</p>
+          <p className="mt-1 text-xs text-white/40">First load may take a few seconds</p>
+        </div>
+      )}
 
-        {/* Loading overlay */}
-        {loading && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/90">
-            <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-            <p className="mt-4 text-sm font-medium text-white">
-              Loading face detection…
-            </p>
-            <p className="mt-1 text-xs text-white/40">
-              First load may take a few seconds
-            </p>
-          </div>
-        )}
-
-        {/* ── Top bar: status badge + FPS ── */}
-        {!loading && (
-          <div className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))]">
-            {/* State badge */}
-            <div
-              className="rounded-full border px-4 py-1.5 text-sm font-bold tracking-widest backdrop-blur-md transition-colors duration-300"
-              style={{
-                borderColor: display.border,
-                color: display.color,
-                backgroundColor: display.bg,
-              }}
-            >
-              {display.label}
-            </div>
-
-            {/* FPS */}
-            <div className="rounded-md bg-background/50 px-2.5 py-1 font-mono text-xs text-foreground/60 backdrop-blur-sm">
-              {fps} FPS
-            </div>
-          </div>
-        )}
-
-        {/* ── Warning banner (centre of screen) ── */}
-        {!loading && isWarning && display.warning && (
-          <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
-            <div
-              className="animate-pulse rounded-2xl border-2 px-6 py-3 text-center text-xl font-black tracking-widest backdrop-blur-md"
-              style={{
-                borderColor: display.color,
-                color: display.color,
-                backgroundColor: display.bg,
-              }}
-            >
-              {display.warning}
-            </div>
-          </div>
-        )}
-
-      </div>
-
-      {/* ── Metrics strip — sits between camera and nav ── */}
+      {/* ── Top bar: status badge + FPS ── */}
       {!loading && (
-        <div className="flex items-stretch divide-x divide-white/10 bg-zinc-900 border-t border-white/10 shrink-0">
-          <MetricPill
-            label="Eyes"
-            value={`${eyePct}%`}
-            sub={eyeOpen ? "Open" : "Closed"}
-            color={eyeOpen ? "#22c55e" : "#ef4444"}
-          />
-          <MetricPill
-            label="Direction"
-            value={headDir}
-            sub={`yaw ${metrics.yaw.toFixed(1)}`}
-            color={
-              Math.abs(metrics.yaw - 1.0) > CONFIG.YAW_THRESHOLD
-                ? "#f59e0b"
-                : "#22c55e"
-            }
-          />
-          <MetricPill
-            label="Tilt"
-            value={
-              metrics.pitch > CONFIG.PITCH_DOWN_THRESHOLD
-                ? "Down"
-                : metrics.pitch < CONFIG.PITCH_UP_THRESHOLD
-                  ? "Up"
-                  : "Level"
-            }
-            sub={`pitch ${metrics.pitch.toFixed(1)}`}
-            color={
-              metrics.pitch > CONFIG.PITCH_DOWN_THRESHOLD ||
-              metrics.pitch < CONFIG.PITCH_UP_THRESHOLD
-                ? "#f59e0b"
-                : "#22c55e"
-            }
-          />
-          <MetricPill
-            label="Status"
-            value={display.label}
-            sub="driver state"
-            color={display.color}
-          />
+        <div className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))]">
+          <div
+            className="rounded-full border px-4 py-1.5 text-sm font-bold tracking-widest backdrop-blur-md transition-colors duration-300"
+            style={{
+              borderColor: display.border,
+              color: display.color,
+              backgroundColor: display.bg,
+            }}
+          >
+            {display.label}
+          </div>
+          <div className="rounded-md bg-black/40 px-2.5 py-1 font-mono text-xs text-white/50 backdrop-blur-sm">
+            {fps} FPS
+          </div>
+        </div>
+      )}
+
+      {/* ── Warning banner ── */}
+      {!loading && isWarning && display.warning && (
+        <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
+          <div
+            className="animate-pulse rounded-2xl border-2 px-6 py-3 text-center text-xl font-black tracking-widest backdrop-blur-md"
+            style={{
+              borderColor: display.color,
+              color: display.color,
+              backgroundColor: display.bg,
+            }}
+          >
+            {display.warning}
+          </div>
+        </div>
+      )}
+
+      {/* ── Bottom metrics overlay ── */}
+      {!loading && (
+        <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-3 pb-4 pt-16">
+          <div className="grid grid-cols-2 gap-2">
+            <MetricCard
+              label="Eyes"
+              value={`${eyePct}%`}
+              sub={eyeOpen ? "Open" : "Closed"}
+              color={eyeOpen ? "#22c55e" : "#ef4444"}
+            />
+            <MetricCard
+              label="Status"
+              value={display.label}
+              sub="driver state"
+              color={display.color}
+            />
+            <MetricCard
+              label="Direction"
+              value={headDir}
+              sub={`yaw ${metrics.yaw.toFixed(2)}`}
+              color={yawOk ? "#22c55e" : "#f59e0b"}
+            />
+            <MetricCard
+              label="Tilt"
+              value={
+                metrics.pitch > CONFIG.PITCH_DOWN_THRESHOLD
+                  ? "Down"
+                  : metrics.pitch < CONFIG.PITCH_UP_THRESHOLD
+                    ? "Up"
+                    : "Level"
+              }
+              sub={`pitch ${metrics.pitch.toFixed(2)}`}
+              color={pitchOk ? "#22c55e" : "#f59e0b"}
+            />
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function MetricPill({
+function MetricCard({
   label,
   value,
   sub,
@@ -367,14 +351,14 @@ function MetricPill({
   color: string;
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-2 py-4">
-      <span className="text-[11px] font-semibold uppercase tracking-widest text-white/40">
+    <div className="flex flex-col items-center justify-center rounded-2xl bg-white/8 py-3 backdrop-blur-sm">
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">
         {label}
       </span>
-      <span className="mt-1 text-lg font-bold leading-tight" style={{ color }}>
+      <span className="mt-1 text-lg font-black leading-tight" style={{ color }}>
         {value}
       </span>
-      <span className="mt-0.5 text-[11px] text-white/30">{sub}</span>
+      <span className="mt-0.5 text-[10px] text-white/30">{sub}</span>
     </div>
   );
 }
