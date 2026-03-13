@@ -7,7 +7,7 @@ export const Route = createFileRoute("/emergency")({ component: Emergency })
 const DEMO_NAME = "John Smith"
 const DEMO_LOCATION = "Princes Highway, near exit 42"
 
-function useTypewriter(text: string, enabled: boolean, speed = 60) {
+function useTypewriter(text: string, enabled: boolean, speed = 80) {
   const [displayed, setDisplayed] = useState("")
   const indexRef = useRef(0)
 
@@ -42,7 +42,7 @@ function Emergency() {
   const { speak, stop: stopTTS, status: ttsStatus } = usePollyTTS()
 
   const emergencyMessage = `Hi, my name is ${DEMO_NAME}. I have been in an accident on the road at ${DEMO_LOCATION} and require emergency assistance.`
-  const typedText = useTypewriter(emergencyMessage, isCalling, 60)
+  const typedText = useTypewriter(emergencyMessage, isCalling, 80)
 
   useEffect(() => {
     if (showNotification && countdown > 0 && !isCalling) {
