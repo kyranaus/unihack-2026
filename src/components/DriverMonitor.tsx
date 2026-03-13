@@ -232,7 +232,7 @@ export default function DriverMonitor() {
 
   return (
     // Full-screen dark container
-    <div className="relative flex min-h-screen w-full flex-col bg-background">
+    <div className="relative flex h-full w-full flex-col bg-black">
 
       {/* ── Camera feed fills entire screen ── */}
       <div className="relative flex-1 overflow-hidden">
@@ -264,7 +264,7 @@ export default function DriverMonitor() {
 
         {/* ── Top bar: status badge + FPS ── */}
         {!loading && (
-          <div className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between px-4 pt-4">
+          <div className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))]">
             {/* State badge */}
             <div
               className="rounded-full border px-4 py-1.5 text-sm font-bold tracking-widest backdrop-blur-md transition-colors duration-300"
@@ -299,11 +299,12 @@ export default function DriverMonitor() {
             </div>
           </div>
         )}
+
       </div>
 
-      {/* ── Bottom metrics strip ── */}
+      {/* ── Metrics strip — sits between camera and nav ── */}
       {!loading && (
-        <div className="z-10 flex items-stretch divide-x divide-foreground/10 bg-background/80 backdrop-blur-md">
+        <div className="flex items-stretch divide-x divide-white/10 bg-zinc-900 border-t border-white/10 shrink-0">
           <MetricPill
             label="Eyes"
             value={`${eyePct}%`}
@@ -361,14 +362,14 @@ function MetricPill({
   color: string;
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-2 py-3">
-      <span className="text-[10px] font-semibold uppercase tracking-widest text-foreground/40">
+    <div className="flex flex-1 flex-col items-center justify-center px-2 py-4">
+      <span className="text-[11px] font-semibold uppercase tracking-widest text-white/40">
         {label}
       </span>
-      <span className="mt-0.5 text-base font-bold leading-tight" style={{ color }}>
+      <span className="mt-1 text-lg font-bold leading-tight" style={{ color }}>
         {value}
       </span>
-      <span className="text-[10px] text-foreground/30">{sub}</span>
+      <span className="mt-0.5 text-[11px] text-white/30">{sub}</span>
     </div>
   );
 }

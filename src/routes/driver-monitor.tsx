@@ -9,7 +9,7 @@ function DriverMonitorPage() {
   return (
     // Full-screen page — no page-wrap, no header padding.
     // pb-24 clears the fixed bottom Navbar.
-    <main className="relative min-h-screen w-full pb-24">
+    <main className="relative h-dvh w-full pb-[88px]">
       <DriverMonitor />
     </main>
   );
