@@ -1,5 +1,4 @@
 import '#/server/polyfill'
-// hello
 
 import { OpenAPIHandler } from '@orpc/openapi/fetch'
 import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4'
