@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 
-type RoadEvent = {
-  id: number
+export type RoadEvent = {
+  id: string
   time: string
   summary: string
   severity: "info" | "warning" | "critical"
+  analysing?: boolean
 }
 
 const SEVERITY_STYLES = {
@@ -13,53 +14,12 @@ const SEVERITY_STYLES = {
   critical: "border-red-800/60 bg-red-950/60 text-red-200",
 } as const
 
-const DEMO_SUMMARIES: { summary: string; severity: RoadEvent["severity"] }[] = [
-  { summary: "Clear road ahead, steady speed ~50 km/h", severity: "info" },
-  { summary: "Approaching intersection - traffic light detected", severity: "info" },
-  { summary: "Vehicle ahead braking - following distance adequate", severity: "info" },
-  { summary: "Lane change detected by adjacent vehicle", severity: "warning" },
-  { summary: "Pedestrian near crossing on left side", severity: "warning" },
-  { summary: "Sudden braking event - vehicle ahead stopped", severity: "critical" },
-  { summary: "Roundabout entry - yielding to traffic", severity: "info" },
-  { summary: "Construction zone - reduced speed detected", severity: "warning" },
-  { summary: "Clear highway stretch, no hazards detected", severity: "info" },
-  { summary: "Tailgating detected - vehicle behind too close", severity: "warning" },
-]
-
-function formatElapsed(seconds: number) {
-  const m = Math.floor(seconds / 60).toString().padStart(2, "0")
-  const s = (seconds % 60).toString().padStart(2, "0")
-  return `${m}:${s}`
-}
-
 type EventLogProps = {
-  elapsed: number
+  events: RoadEvent[]
 }
 
-export function EventLog({ elapsed }: EventLogProps) {
-  const [events, setEvents] = useState<RoadEvent[]>([])
+export function EventLog({ events }: EventLogProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const nextIdRef = useRef(0)
-
-  useEffect(() => {
-    if (elapsed === 0) {
-      setEvents([])
-      nextIdRef.current = 0
-      return
-    }
-    if (elapsed % 10 !== 0) return
-
-    const demo = DEMO_SUMMARIES[nextIdRef.current % DEMO_SUMMARIES.length]
-    const newEvent: RoadEvent = {
-      id: nextIdRef.current,
-      time: formatElapsed(elapsed),
-      summary: demo.summary,
-      severity: demo.severity,
-    }
-
-    nextIdRef.current += 1
-    setEvents((prev) => [...prev.slice(-9), newEvent])
-  }, [elapsed])
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -83,7 +43,13 @@ export function EventLog({ elapsed }: EventLogProps) {
             <span className="mt-0.5 shrink-0 font-mono text-[10px] text-zinc-500">
               {event.time}
             </span>
-            <p className="text-xs leading-relaxed">{event.summary}</p>
+            <p className="text-xs leading-relaxed">
+              {event.analysing ? (
+                <span className="animate-pulse text-zinc-500">Analysing road...</span>
+              ) : (
+                event.summary
+              )}
+            </p>
           </div>
         ))}
       </div>

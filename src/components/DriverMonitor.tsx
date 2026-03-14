@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { DriverState, SmoothedMetrics } from "#/lib/driver-monitor-utils";
+import { useDriverEventLogger } from "#/hooks/useDriverEventLogger";
 import {
   CONFIG,
   FACE_LANDMARKER_MODEL_URL,
@@ -27,6 +28,8 @@ export default function DriverMonitor() {
   const [fps, setFps] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useDriverEventLogger(driverState, metrics);
 
   useEffect(() => {
     let animFrameId: number;
