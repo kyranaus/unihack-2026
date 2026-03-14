@@ -9,53 +9,24 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ReplayRouteImport } from './routes/replay'
-import { Route as RecordRouteImport } from './routes/record'
-import { Route as ProfileRouteImport } from './routes/profile'
-import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as EmergencyRouteImport } from './routes/emergency'
-import { Route as DriverMonitorRouteImport } from './routes/driver-monitor'
 import { Route as AboutRouteImport } from './routes/about'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as ApiTtsRouteImport } from './routes/api/tts'
 import { Route as ApiSplatRouteImport } from './routes/api.$'
+import { Route as AuthedReplayRouteImport } from './routes/_authed/replay'
+import { Route as AuthedRecordRouteImport } from './routes/_authed/record'
+import { Route as AuthedProfileRouteImport } from './routes/_authed/profile'
+import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
+import { Route as AuthedEmergencyRouteImport } from './routes/_authed/emergency'
+import { Route as AuthedDriverMonitorRouteImport } from './routes/_authed/driver-monitor'
 import { Route as ApiRpcSplatRouteImport } from './routes/api.rpc.$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
-const ReplayRoute = ReplayRouteImport.update({
-  id: '/replay',
-  path: '/replay',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RecordRoute = RecordRouteImport.update({
-  id: '/record',
-  path: '/record',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProfileRoute = ProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OnboardingRoute = OnboardingRouteImport.update({
-  id: '/onboarding',
-  path: '/onboarding',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EmergencyRoute = EmergencyRouteImport.update({
-  id: '/emergency',
-  path: '/emergency',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DriverMonitorRoute = DriverMonitorRouteImport.update({
-  id: '/driver-monitor',
-  path: '/driver-monitor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -63,10 +34,14 @@ const AboutRoute = AboutRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
+const AuthedRoute = AuthedRouteImport.update({
+  id: '/_authed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedIndexRoute = AuthedIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthedRoute,
 } as any)
 const ApiTtsRoute = ApiTtsRouteImport.update({
   id: '/api/tts',
@@ -77,6 +52,36 @@ const ApiSplatRoute = ApiSplatRouteImport.update({
   id: '/api/$',
   path: '/api/$',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedReplayRoute = AuthedReplayRouteImport.update({
+  id: '/replay',
+  path: '/replay',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedRecordRoute = AuthedRecordRouteImport.update({
+  id: '/record',
+  path: '/record',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedProfileRoute = AuthedProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedOnboardingRoute = AuthedOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedEmergencyRoute = AuthedEmergencyRouteImport.update({
+  id: '/emergency',
+  path: '/emergency',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedDriverMonitorRoute = AuthedDriverMonitorRouteImport.update({
+  id: '/driver-monitor',
+  path: '/driver-monitor',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
   id: '/api/rpc/$',
@@ -90,48 +95,49 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AuthedIndexRoute
   '/about': typeof AboutRoute
-  '/driver-monitor': typeof DriverMonitorRoute
-  '/emergency': typeof EmergencyRoute
   '/login': typeof LoginRoute
-  '/onboarding': typeof OnboardingRoute
-  '/profile': typeof ProfileRoute
-  '/record': typeof RecordRoute
-  '/replay': typeof ReplayRoute
+  '/driver-monitor': typeof AuthedDriverMonitorRoute
+  '/emergency': typeof AuthedEmergencyRoute
+  '/onboarding': typeof AuthedOnboardingRoute
+  '/profile': typeof AuthedProfileRoute
+  '/record': typeof AuthedRecordRoute
+  '/replay': typeof AuthedReplayRoute
   '/api/$': typeof ApiSplatRoute
   '/api/tts': typeof ApiTtsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/driver-monitor': typeof DriverMonitorRoute
-  '/emergency': typeof EmergencyRoute
   '/login': typeof LoginRoute
-  '/onboarding': typeof OnboardingRoute
-  '/profile': typeof ProfileRoute
-  '/record': typeof RecordRoute
-  '/replay': typeof ReplayRoute
+  '/driver-monitor': typeof AuthedDriverMonitorRoute
+  '/emergency': typeof AuthedEmergencyRoute
+  '/onboarding': typeof AuthedOnboardingRoute
+  '/profile': typeof AuthedProfileRoute
+  '/record': typeof AuthedRecordRoute
+  '/replay': typeof AuthedReplayRoute
   '/api/$': typeof ApiSplatRoute
   '/api/tts': typeof ApiTtsRoute
+  '/': typeof AuthedIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_authed': typeof AuthedRouteWithChildren
   '/about': typeof AboutRoute
-  '/driver-monitor': typeof DriverMonitorRoute
-  '/emergency': typeof EmergencyRoute
   '/login': typeof LoginRoute
-  '/onboarding': typeof OnboardingRoute
-  '/profile': typeof ProfileRoute
-  '/record': typeof RecordRoute
-  '/replay': typeof ReplayRoute
+  '/_authed/driver-monitor': typeof AuthedDriverMonitorRoute
+  '/_authed/emergency': typeof AuthedEmergencyRoute
+  '/_authed/onboarding': typeof AuthedOnboardingRoute
+  '/_authed/profile': typeof AuthedProfileRoute
+  '/_authed/record': typeof AuthedRecordRoute
+  '/_authed/replay': typeof AuthedReplayRoute
   '/api/$': typeof ApiSplatRoute
   '/api/tts': typeof ApiTtsRoute
+  '/_authed/': typeof AuthedIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
 }
@@ -140,9 +146,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/login'
     | '/driver-monitor'
     | '/emergency'
-    | '/login'
     | '/onboarding'
     | '/profile'
     | '/record'
@@ -153,46 +159,41 @@ export interface FileRouteTypes {
     | '/api/rpc/$'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/about'
+    | '/login'
     | '/driver-monitor'
     | '/emergency'
-    | '/login'
     | '/onboarding'
     | '/profile'
     | '/record'
     | '/replay'
     | '/api/$'
     | '/api/tts'
+    | '/'
     | '/api/auth/$'
     | '/api/rpc/$'
   id:
     | '__root__'
-    | '/'
+    | '/_authed'
     | '/about'
-    | '/driver-monitor'
-    | '/emergency'
     | '/login'
-    | '/onboarding'
-    | '/profile'
-    | '/record'
-    | '/replay'
+    | '/_authed/driver-monitor'
+    | '/_authed/emergency'
+    | '/_authed/onboarding'
+    | '/_authed/profile'
+    | '/_authed/record'
+    | '/_authed/replay'
     | '/api/$'
     | '/api/tts'
+    | '/_authed/'
     | '/api/auth/$'
     | '/api/rpc/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  AuthedRoute: typeof AuthedRouteWithChildren
   AboutRoute: typeof AboutRoute
-  DriverMonitorRoute: typeof DriverMonitorRoute
-  EmergencyRoute: typeof EmergencyRoute
   LoginRoute: typeof LoginRoute
-  OnboardingRoute: typeof OnboardingRoute
-  ProfileRoute: typeof ProfileRoute
-  RecordRoute: typeof RecordRoute
-  ReplayRoute: typeof ReplayRoute
   ApiSplatRoute: typeof ApiSplatRoute
   ApiTtsRoute: typeof ApiTtsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -201,53 +202,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/replay': {
-      id: '/replay'
-      path: '/replay'
-      fullPath: '/replay'
-      preLoaderRoute: typeof ReplayRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/record': {
-      id: '/record'
-      path: '/record'
-      fullPath: '/record'
-      preLoaderRoute: typeof RecordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/profile': {
-      id: '/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProfileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/onboarding': {
-      id: '/onboarding'
-      path: '/onboarding'
-      fullPath: '/onboarding'
-      preLoaderRoute: typeof OnboardingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/emergency': {
-      id: '/emergency'
-      path: '/emergency'
-      fullPath: '/emergency'
-      preLoaderRoute: typeof EmergencyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/driver-monitor': {
-      id: '/driver-monitor'
-      path: '/driver-monitor'
-      fullPath: '/driver-monitor'
-      preLoaderRoute: typeof DriverMonitorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -257,12 +216,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
+    '/_authed': {
+      id: '/_authed'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authed/': {
+      id: '/_authed/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthedIndexRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/api/tts': {
       id: '/api/tts'
@@ -277,6 +243,48 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/$'
       preLoaderRoute: typeof ApiSplatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authed/replay': {
+      id: '/_authed/replay'
+      path: '/replay'
+      fullPath: '/replay'
+      preLoaderRoute: typeof AuthedReplayRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/record': {
+      id: '/_authed/record'
+      path: '/record'
+      fullPath: '/record'
+      preLoaderRoute: typeof AuthedRecordRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/profile': {
+      id: '/_authed/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthedProfileRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/onboarding': {
+      id: '/_authed/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AuthedOnboardingRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/emergency': {
+      id: '/_authed/emergency'
+      path: '/emergency'
+      fullPath: '/emergency'
+      preLoaderRoute: typeof AuthedEmergencyRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/driver-monitor': {
+      id: '/_authed/driver-monitor'
+      path: '/driver-monitor'
+      fullPath: '/driver-monitor'
+      preLoaderRoute: typeof AuthedDriverMonitorRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/api/rpc/$': {
       id: '/api/rpc/$'
@@ -295,16 +303,33 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthedRouteChildren {
+  AuthedDriverMonitorRoute: typeof AuthedDriverMonitorRoute
+  AuthedEmergencyRoute: typeof AuthedEmergencyRoute
+  AuthedOnboardingRoute: typeof AuthedOnboardingRoute
+  AuthedProfileRoute: typeof AuthedProfileRoute
+  AuthedRecordRoute: typeof AuthedRecordRoute
+  AuthedReplayRoute: typeof AuthedReplayRoute
+  AuthedIndexRoute: typeof AuthedIndexRoute
+}
+
+const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedDriverMonitorRoute: AuthedDriverMonitorRoute,
+  AuthedEmergencyRoute: AuthedEmergencyRoute,
+  AuthedOnboardingRoute: AuthedOnboardingRoute,
+  AuthedProfileRoute: AuthedProfileRoute,
+  AuthedRecordRoute: AuthedRecordRoute,
+  AuthedReplayRoute: AuthedReplayRoute,
+  AuthedIndexRoute: AuthedIndexRoute,
+}
+
+const AuthedRouteWithChildren =
+  AuthedRoute._addFileChildren(AuthedRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  AuthedRoute: AuthedRouteWithChildren,
   AboutRoute: AboutRoute,
-  DriverMonitorRoute: DriverMonitorRoute,
-  EmergencyRoute: EmergencyRoute,
   LoginRoute: LoginRoute,
-  OnboardingRoute: OnboardingRoute,
-  ProfileRoute: ProfileRoute,
-  RecordRoute: RecordRoute,
-  ReplayRoute: ReplayRoute,
   ApiSplatRoute: ApiSplatRoute,
   ApiTtsRoute: ApiTtsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

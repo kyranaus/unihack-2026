@@ -200,6 +200,7 @@ export type userWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"user"> | Date | string
   sessions?: Prisma.SessionListRelationFilter
   accounts?: Prisma.AccountListRelationFilter
+  driveSessions?: Prisma.DriveSessionListRelationFilter
 }
 
 export type userOrderByWithRelationInput = {
@@ -212,6 +213,7 @@ export type userOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   sessions?: Prisma.sessionOrderByRelationAggregateInput
   accounts?: Prisma.accountOrderByRelationAggregateInput
+  driveSessions?: Prisma.DriveSessionOrderByRelationAggregateInput
 }
 
 export type userWhereUniqueInput = Prisma.AtLeast<{
@@ -227,6 +229,7 @@ export type userWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"user"> | Date | string
   sessions?: Prisma.SessionListRelationFilter
   accounts?: Prisma.AccountListRelationFilter
+  driveSessions?: Prisma.DriveSessionListRelationFilter
 }, "id" | "email">
 
 export type userOrderByWithAggregationInput = {
@@ -265,6 +268,7 @@ export type userCreateInput = {
   updatedAt?: Date | string
   sessions?: Prisma.sessionCreateNestedManyWithoutUserInput
   accounts?: Prisma.accountCreateNestedManyWithoutUserInput
+  driveSessions?: Prisma.DriveSessionCreateNestedManyWithoutUserInput
 }
 
 export type userUncheckedCreateInput = {
@@ -277,6 +281,7 @@ export type userUncheckedCreateInput = {
   updatedAt?: Date | string
   sessions?: Prisma.sessionUncheckedCreateNestedManyWithoutUserInput
   accounts?: Prisma.accountUncheckedCreateNestedManyWithoutUserInput
+  driveSessions?: Prisma.DriveSessionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type userUpdateInput = {
@@ -289,6 +294,7 @@ export type userUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.sessionUpdateManyWithoutUserNestedInput
   accounts?: Prisma.accountUpdateManyWithoutUserNestedInput
+  driveSessions?: Prisma.DriveSessionUpdateManyWithoutUserNestedInput
 }
 
 export type userUncheckedUpdateInput = {
@@ -301,6 +307,7 @@ export type userUncheckedUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.sessionUncheckedUpdateManyWithoutUserNestedInput
   accounts?: Prisma.accountUncheckedUpdateManyWithoutUserNestedInput
+  driveSessions?: Prisma.DriveSessionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type userCreateManyInput = {
@@ -368,6 +375,11 @@ export type UserScalarRelationFilter = {
   isNot?: Prisma.userWhereInput
 }
 
+export type UserNullableScalarRelationFilter = {
+  is?: Prisma.userWhereInput | null
+  isNot?: Prisma.userWhereInput | null
+}
+
 export type BoolFieldUpdateOperationsInput = {
   set?: boolean
 }
@@ -404,6 +416,22 @@ export type userUpdateOneRequiredWithoutAccountsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.userUpdateToOneWithWhereWithoutAccountsInput, Prisma.userUpdateWithoutAccountsInput>, Prisma.userUncheckedUpdateWithoutAccountsInput>
 }
 
+export type userCreateNestedOneWithoutDriveSessionsInput = {
+  create?: Prisma.XOR<Prisma.userCreateWithoutDriveSessionsInput, Prisma.userUncheckedCreateWithoutDriveSessionsInput>
+  connectOrCreate?: Prisma.userCreateOrConnectWithoutDriveSessionsInput
+  connect?: Prisma.userWhereUniqueInput
+}
+
+export type userUpdateOneWithoutDriveSessionsNestedInput = {
+  create?: Prisma.XOR<Prisma.userCreateWithoutDriveSessionsInput, Prisma.userUncheckedCreateWithoutDriveSessionsInput>
+  connectOrCreate?: Prisma.userCreateOrConnectWithoutDriveSessionsInput
+  upsert?: Prisma.userUpsertWithoutDriveSessionsInput
+  disconnect?: Prisma.userWhereInput | boolean
+  delete?: Prisma.userWhereInput | boolean
+  connect?: Prisma.userWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.userUpdateToOneWithWhereWithoutDriveSessionsInput, Prisma.userUpdateWithoutDriveSessionsInput>, Prisma.userUncheckedUpdateWithoutDriveSessionsInput>
+}
+
 export type userCreateWithoutSessionsInput = {
   id?: string
   name: string
@@ -413,6 +441,7 @@ export type userCreateWithoutSessionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   accounts?: Prisma.accountCreateNestedManyWithoutUserInput
+  driveSessions?: Prisma.DriveSessionCreateNestedManyWithoutUserInput
 }
 
 export type userUncheckedCreateWithoutSessionsInput = {
@@ -424,6 +453,7 @@ export type userUncheckedCreateWithoutSessionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   accounts?: Prisma.accountUncheckedCreateNestedManyWithoutUserInput
+  driveSessions?: Prisma.DriveSessionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type userCreateOrConnectWithoutSessionsInput = {
@@ -451,6 +481,7 @@ export type userUpdateWithoutSessionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.accountUpdateManyWithoutUserNestedInput
+  driveSessions?: Prisma.DriveSessionUpdateManyWithoutUserNestedInput
 }
 
 export type userUncheckedUpdateWithoutSessionsInput = {
@@ -462,6 +493,7 @@ export type userUncheckedUpdateWithoutSessionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   accounts?: Prisma.accountUncheckedUpdateManyWithoutUserNestedInput
+  driveSessions?: Prisma.DriveSessionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type userCreateWithoutAccountsInput = {
@@ -473,6 +505,7 @@ export type userCreateWithoutAccountsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.sessionCreateNestedManyWithoutUserInput
+  driveSessions?: Prisma.DriveSessionCreateNestedManyWithoutUserInput
 }
 
 export type userUncheckedCreateWithoutAccountsInput = {
@@ -484,6 +517,7 @@ export type userUncheckedCreateWithoutAccountsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.sessionUncheckedCreateNestedManyWithoutUserInput
+  driveSessions?: Prisma.DriveSessionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type userCreateOrConnectWithoutAccountsInput = {
@@ -511,6 +545,7 @@ export type userUpdateWithoutAccountsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.sessionUpdateManyWithoutUserNestedInput
+  driveSessions?: Prisma.DriveSessionUpdateManyWithoutUserNestedInput
 }
 
 export type userUncheckedUpdateWithoutAccountsInput = {
@@ -522,6 +557,71 @@ export type userUncheckedUpdateWithoutAccountsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.sessionUncheckedUpdateManyWithoutUserNestedInput
+  driveSessions?: Prisma.DriveSessionUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type userCreateWithoutDriveSessionsInput = {
+  id?: string
+  name: string
+  email: string
+  emailVerified?: boolean
+  image?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.sessionCreateNestedManyWithoutUserInput
+  accounts?: Prisma.accountCreateNestedManyWithoutUserInput
+}
+
+export type userUncheckedCreateWithoutDriveSessionsInput = {
+  id?: string
+  name: string
+  email: string
+  emailVerified?: boolean
+  image?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.sessionUncheckedCreateNestedManyWithoutUserInput
+  accounts?: Prisma.accountUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type userCreateOrConnectWithoutDriveSessionsInput = {
+  where: Prisma.userWhereUniqueInput
+  create: Prisma.XOR<Prisma.userCreateWithoutDriveSessionsInput, Prisma.userUncheckedCreateWithoutDriveSessionsInput>
+}
+
+export type userUpsertWithoutDriveSessionsInput = {
+  update: Prisma.XOR<Prisma.userUpdateWithoutDriveSessionsInput, Prisma.userUncheckedUpdateWithoutDriveSessionsInput>
+  create: Prisma.XOR<Prisma.userCreateWithoutDriveSessionsInput, Prisma.userUncheckedCreateWithoutDriveSessionsInput>
+  where?: Prisma.userWhereInput
+}
+
+export type userUpdateToOneWithWhereWithoutDriveSessionsInput = {
+  where?: Prisma.userWhereInput
+  data: Prisma.XOR<Prisma.userUpdateWithoutDriveSessionsInput, Prisma.userUncheckedUpdateWithoutDriveSessionsInput>
+}
+
+export type userUpdateWithoutDriveSessionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.sessionUpdateManyWithoutUserNestedInput
+  accounts?: Prisma.accountUpdateManyWithoutUserNestedInput
+}
+
+export type userUncheckedUpdateWithoutDriveSessionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  emailVerified?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  image?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.sessionUncheckedUpdateManyWithoutUserNestedInput
+  accounts?: Prisma.accountUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -532,11 +632,13 @@ export type userUncheckedUpdateWithoutAccountsInput = {
 export type UserCountOutputType = {
   sessions: number
   accounts: number
+  driveSessions: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sessions?: boolean | UserCountOutputTypeCountSessionsArgs
   accounts?: boolean | UserCountOutputTypeCountAccountsArgs
+  driveSessions?: boolean | UserCountOutputTypeCountDriveSessionsArgs
 }
 
 /**
@@ -563,6 +665,13 @@ export type UserCountOutputTypeCountAccountsArgs<ExtArgs extends runtime.Types.E
   where?: Prisma.accountWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountDriveSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.DriveSessionWhereInput
+}
+
 
 export type userSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -574,6 +683,7 @@ export type userSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   updatedAt?: boolean
   sessions?: boolean | Prisma.user$sessionsArgs<ExtArgs>
   accounts?: boolean | Prisma.user$accountsArgs<ExtArgs>
+  driveSessions?: boolean | Prisma.user$driveSessionsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -611,6 +721,7 @@ export type userOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = run
 export type userInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sessions?: boolean | Prisma.user$sessionsArgs<ExtArgs>
   accounts?: boolean | Prisma.user$accountsArgs<ExtArgs>
+  driveSessions?: boolean | Prisma.user$driveSessionsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type userIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -621,6 +732,7 @@ export type $userPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   objects: {
     sessions: Prisma.$sessionPayload<ExtArgs>[]
     accounts: Prisma.$accountPayload<ExtArgs>[]
+    driveSessions: Prisma.$DriveSessionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1026,6 +1138,7 @@ export interface Prisma__userClient<T, Null = never, ExtArgs extends runtime.Typ
   readonly [Symbol.toStringTag]: "PrismaPromise"
   sessions<T extends Prisma.user$sessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.user$sessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$sessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   accounts<T extends Prisma.user$accountsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.user$accountsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$accountPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  driveSessions<T extends Prisma.user$driveSessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.user$driveSessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DriveSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1500,6 +1613,30 @@ export type user$accountsArgs<ExtArgs extends runtime.Types.Extensions.InternalA
   take?: number
   skip?: number
   distinct?: Prisma.AccountScalarFieldEnum | Prisma.AccountScalarFieldEnum[]
+}
+
+/**
+ * user.driveSessions
+ */
+export type user$driveSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the DriveSession
+   */
+  select?: Prisma.DriveSessionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the DriveSession
+   */
+  omit?: Prisma.DriveSessionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.DriveSessionInclude<ExtArgs> | null
+  where?: Prisma.DriveSessionWhereInput
+  orderBy?: Prisma.DriveSessionOrderByWithRelationInput | Prisma.DriveSessionOrderByWithRelationInput[]
+  cursor?: Prisma.DriveSessionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.DriveSessionScalarFieldEnum | Prisma.DriveSessionScalarFieldEnum[]
 }
 
 /**

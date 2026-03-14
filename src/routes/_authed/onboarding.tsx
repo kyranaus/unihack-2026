@@ -1,23 +1,15 @@
-// src/routes/onboarding.tsx
+// src/routes/_authed/onboarding.tsx
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { motion } from "framer-motion"
 import { authClient } from "#/lib/auth-client"
 
-export const Route = createFileRoute("/onboarding")({ component: OnboardingPage })
+export const Route = createFileRoute("/_authed/onboarding")({ component: OnboardingPage })
 
 function OnboardingPage() {
   const navigate = useNavigate()
-  const { data: session, isPending } = authClient.useSession()
   const [username, setUsername] = useState("")
   const [saving, setSaving] = useState(false)
-
-  if (isPending) return null
-
-  if (!session?.user) {
-    navigate({ to: "/login" })
-    return null
-  }
 
   const handleContinue = async () => {
     const trimmed = username.trim()

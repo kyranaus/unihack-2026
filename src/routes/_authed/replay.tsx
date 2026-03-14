@@ -1,4 +1,4 @@
-// src/routes/replay.tsx
+// src/routes/_authed/replay.tsx
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { z } from "zod";
@@ -9,7 +9,7 @@ import { listRecordings, getRecording } from "#/lib/replay-store";
 import type { RecordingMeta } from "#/lib/replay-store";
 import { client } from "#/server/orpc/client";
 
-export const Route = createFileRoute("/replay")({
+export const Route = createFileRoute("/_authed/replay")({
   component: ReplayPage,
   validateSearch: z.object({ t: z.number().optional() }),
 });
@@ -42,7 +42,7 @@ interface DriveEntry {
 }
 
 function ReplayPage() {
-  const { t: refreshKey } = useSearch({ from: "/replay" });
+  const { t: refreshKey } = useSearch({ from: "/_authed/replay" });
   const [drives, setDrives] = useState<DriveEntry[]>([]);
   const [loadingDrives, setLoadingDrives] = useState(true);
   const [selectedIdx, setSelectedIdx] = useState(0);

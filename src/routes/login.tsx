@@ -1,20 +1,22 @@
 // src/routes/login.tsx
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import { motion } from "framer-motion"
 import { BrandLogo } from "#/components/home/BrandLogo"
 import { authClient } from "#/lib/auth-client"
+import { getSession } from "#/lib/auth-session"
 
-export const Route = createFileRoute("/login")({ component: LoginPage })
+export const Route = createFileRoute("/login")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect: (search.redirect as string) || undefined,
+  }),
+  beforeLoad: async () => {
+    const session = await getSession()
+    if (session) throw redirect({ to: "/" })
+  },
+  component: LoginPage,
+})
 
 function LoginPage() {
-  const navigate = useNavigate()
-  const { data: session } = authClient.useSession()
-
-  if (session?.user) {
-    navigate({ to: "/" })
-    return null
-  }
-
   const handleGoogleSignIn = () => {
     authClient.signIn.social({
       provider: "google",
@@ -39,13 +41,6 @@ function LoginPage() {
           >
             <GoogleIcon />
             Continue with Google
-          </button>
-
-          <button
-            onClick={() => navigate({ to: "/driver-monitor" })}
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Skip for now
           </button>
 
           <p className="text-center text-[10px] text-muted-foreground">

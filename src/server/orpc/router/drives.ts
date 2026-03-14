@@ -2,12 +2,27 @@ import { os } from "@orpc/server"
 import * as z from "zod"
 import { prisma } from "#/server/db"
 import { analyseFrames, summariseDrive } from "#/server/ai/analyse-frames"
+import { auth } from "#/server/auth"
+import { getRequestHeaders } from "@tanstack/react-start/server"
 
 const cameraEnum = z.enum(["front", "back"])
 
+async function getCurrentUserId(): Promise<string | null> {
+  try {
+    const headers = getRequestHeaders()
+    const session = await auth.api.getSession({ headers })
+    return session?.user?.id ?? null
+  } catch {
+    return null
+  }
+}
+
 export const startSession = os.input(z.object({})).handler(async () => {
+  const userId = await getCurrentUserId()
   console.log("[BeeSafe] Starting new drive session...")
-  const session = await prisma.driveSession.create({ data: {} })
+  const session = await prisma.driveSession.create({
+    data: { userId },
+  })
   console.log("[BeeSafe] Session created:", session.id)
   return { sessionId: session.id }
 })

@@ -1036,6 +1036,7 @@ export type VerificationScalarFieldEnum = (typeof VerificationScalarFieldEnum)[k
 
 export const DriveSessionScalarFieldEnum = {
   id: 'id',
+  userId: 'userId',
   startedAt: 'startedAt',
   endedAt: 'endedAt',
   summary: 'summary',

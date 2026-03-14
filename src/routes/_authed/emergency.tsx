@@ -1,8 +1,9 @@
+// src/routes/_authed/emergency.tsx
 import { createFileRoute } from "@tanstack/react-router"
 import { useState, useEffect, useRef } from "react"
 import { usePollyTTS } from "#/lib/use-polly-tts"
 
-export const Route = createFileRoute("/emergency")({ component: Emergency })
+export const Route = createFileRoute("/_authed/emergency")({ component: Emergency })
 
 const DEMO_NAME = "John Smith"
 const DEMO_LOCATION = "Princes Highway, near exit 42"
