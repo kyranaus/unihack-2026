@@ -4,11 +4,11 @@ import { motion } from "framer-motion"
 import { DriverScoreCircle } from "#/components/home/DriverScoreCircle"
 import { BrandLogo } from "#/components/home/BrandLogo"
 import { Smartphone, Video } from "lucide-react"
+import { authClient } from "#/lib/auth-client"
 
 export const Route = createFileRoute("/")({ component: App })
 
 const DRIVER_SCORE = 85
-const USERNAME = "Stevenphanny"
 const APP_URL = "https://kyranaus-unihack-2026.kyranmenezesaus.workers.dev/"
 const QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=000000&bgcolor=ffffff&data=${encodeURIComponent(APP_URL)}`
 
@@ -49,6 +49,17 @@ function BrushName({ name }: { name: string }) {
 
 function App() {
   const navigate = useNavigate()
+  const { data: session, isPending } = authClient.useSession()
+
+  if (isPending) return null
+
+  if (!session?.user) {
+    navigate({ to: "/login" })
+    return null
+  }
+
+  const username = session.user.name || "Driver"
+
   return (
     <main className="min-h-screen bg-background text-foreground">
 
@@ -96,7 +107,7 @@ function App() {
             </motion.p>
             
             <div className="mt-2">
-              <BrushName name={USERNAME} />
+              <BrushName name={username} />
             </div>
           </div>
 
