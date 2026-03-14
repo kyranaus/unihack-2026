@@ -1,7 +1,6 @@
 // src/components/RecordView.tsx
 import { useEffect, useRef, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import type { DriverState, EarCalibration, SmoothedMetrics } from "#/lib/driver-monitor-utils";
 import {
@@ -27,6 +26,7 @@ import { useCrashDetection, requestMotionPermission } from "#/hooks/use-crash-de
 import { useSpeed } from "#/hooks/use-speed";
 import { useCameraDevices } from "#/hooks/use-camera-devices";
 import { usePollyTTS } from "#/lib/use-polly-tts";
+import { EmergencyOverlay, type CrashLocation } from "#/components/emergency/EmergencyOverlay";
 import { driveSessionStore } from "#/hooks/useDriveSession";
 import { client } from "#/server/orpc/client";
 import { getSupportedMimeType } from "#/lib/media-utils";
@@ -61,7 +61,6 @@ export default function RecordView() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const alarmRef = useRef<HTMLAudioElement | null>(null);
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // Camera mode: dual (Android/desktop) vs single (iOS / fallback)
@@ -117,6 +116,10 @@ export default function RecordView() {
   const [sessionScore, setSessionScore] = useState<number | null>(null);
   const [liveLog, setLiveLog] = useState<string[]>([]);
 
+  // Emergency overlay
+  const [emergencyTriggered, setEmergencyTriggered] = useState(false);
+  const [emergencyLocation, setEmergencyLocation] = useState<CrashLocation | null>(null);
+
   // debugAccel
   const [debugAccel, setDebugAccel] = useState(false);
   const [motionPermissionHintShown, setMotionPermissionHintShown] = useState(false);
@@ -171,16 +174,9 @@ export default function RecordView() {
   const handleCrash = useCallback(async ({ g }: { g: number; speedKmh: number | null }) => {
     addLog(`CRASH: ${g.toFixed(1)}g impact detected`);
     const sessionId = sessionIdRef.current;
-    
-    // Capture location at time of crash
-    const crashLocation = {
-      latitude,
-      longitude,
-      accuracy,
-      heading,
-      speedKmh,
-    };
-    
+
+    const loc: CrashLocation = { latitude, longitude, accuracy, heading, speedKmh };
+
     if (sessionId) {
       await client.logDriverEvent({
         sessionId,
@@ -189,21 +185,15 @@ export default function RecordView() {
         summary: `Collision detected - ${g.toFixed(1)}g impact`,
         severity: "critical",
         camera: "front",
-        metadata: { gForce: g, location: crashLocation },
+        metadata: { gForce: g, location: loc },
       }).catch(console.error);
     }
-    
-    // Store crash location in session storage for emergency page
-    try {
-      window.sessionStorage.setItem("dashcam.crashLocation", JSON.stringify(crashLocation));
-    } catch {
-      // ignore storage errors
-    }
-    
-    navigate({ to: "/emergency" as any });
-  }, [addLog, navigate, latitude, longitude, accuracy, heading, speedKmh]);
 
-  const crash = useCrashDetection({ speedKmh, onCrash: handleCrash });
+    setEmergencyLocation(loc);
+    setEmergencyTriggered(true);
+  }, [addLog, latitude, longitude, accuracy, heading, speedKmh]);
+
+  const crash = useCrashDetection({ speedKmh, onCrash: handleCrash, gThreshold: 1.0 });
 
   // Track accel samples for debug sparklines
   useEffect(() => {
@@ -991,6 +981,12 @@ export default function RecordView() {
           onDone={() => { setPendingRec(null); setSessionScore(null); lastSessionIdRef.current = null; }}
         />
       )}
+
+      <EmergencyOverlay
+        triggered={emergencyTriggered}
+        crashLocation={emergencyLocation}
+        onDismiss={() => setEmergencyTriggered(false)}
+      />
     </div>
   );
 }
