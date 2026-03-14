@@ -3,4 +3,5 @@ import { defineNitroConfig } from "nitro/config";
 export default defineNitroConfig({
     compatibilityDate: "2025-09-23",
     preset: "vercel",
+    noExternals: ["@prisma/client"],
 })
