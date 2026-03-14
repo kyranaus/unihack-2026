@@ -1,4 +1,4 @@
-// src/routes/replay.tsx
+// src/routes/_authed/replay.tsx
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { z } from "zod";
@@ -6,15 +6,16 @@ import { Play, Pause, BarChart2, Clock, Download, Zap } from "lucide-react";
 import { DriverFeedback } from "#/components/DriverFeedback";
 import type { SessionData } from "#/components/DriverFeedback";
 import { listRecordings, getRecording } from "#/lib/replay-store";
-import type { RecordingMeta } from "#/lib/replay-store";
+import type { RecordingMeta, SpeedSample } from "#/lib/replay-store";
 import { client } from "#/server/orpc/client";
 
-export const Route = createFileRoute("/replay")({
+export const Route = createFileRoute("/_authed/replay")({
   component: ReplayPage,
   validateSearch: z.object({ t: z.number().optional() }),
 });
 
 function fmt(s: number) {
+  if (!Number.isFinite(s) || isNaN(s)) return "0:00";
   const t = Math.floor(s);
   return `${Math.floor(t / 60)}:${(t % 60).toString().padStart(2, "0")}`;
 }
@@ -34,39 +35,96 @@ function scoreColor(score: number): string {
   return score >= 85 ? "#22c55e" : score >= 70 ? "#f59e0b" : "#ef4444";
 }
 
+function speedAtTime(track: SpeedSample[] | undefined, timeSec: number): number | null {
+  if (!track || track.length === 0) return null;
+  if (timeSec <= track[0].elapsedSec) return track[0].speedKmh;
+  if (timeSec >= track[track.length - 1].elapsedSec) return track[track.length - 1].speedKmh;
+  for (let i = 1; i < track.length; i++) {
+    if (timeSec <= track[i].elapsedSec) {
+      const prev = track[i - 1];
+      const next = track[i];
+      const t = (timeSec - prev.elapsedSec) / (next.elapsedSec - prev.elapsedSec);
+      return prev.speedKmh + t * (next.speedKmh - prev.speedKmh);
+    }
+  }
+  return null;
+}
+
 interface DriveEntry {
   meta: RecordingMeta;
   url: string;
+  backUrl: string | null;
+  source: "local" | "cloud";
+  videoKey?: string;
+  speedTrack?: SpeedSample[];
 }
 
 function ReplayPage() {
-  const { t: refreshKey } = useSearch({ from: "/replay" });
+  const { t: refreshKey } = useSearch({ from: "/_authed/replay" });
   const [drives, setDrives] = useState<DriveEntry[]>([]);
   const [loadingDrives, setLoadingDrives] = useState(true);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [activeCamera, setActiveCamera] = useState<"front" | "back">("back");
+  const [showDownloadSheet, setShowDownloadSheet] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const frontVideoRef = useRef<HTMLVideoElement>(null);
+  const backVideoRef = useRef<HTMLVideoElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
   const loadDrives = useCallback(async () => {
     setLoadingDrives(true);
     try {
-      const metas = await listRecordings();
-      const entries: DriveEntry[] = await Promise.all(
-        metas.map(async (meta) => {
+      const [localMetas, serverResult] = await Promise.all([
+        listRecordings(),
+        client.listDriveSessions({}).catch(() => ({ sessions: [] })),
+      ]);
+
+      const localEntries: DriveEntry[] = await Promise.all(
+        localMetas.map(async (meta) => {
           const rec = await getRecording(meta.id);
           const url = rec ? URL.createObjectURL(rec.videoBlob) : "";
-          return { meta, url };
-        })
+          const backUrl = rec?.backVideoBlob ? URL.createObjectURL(rec.backVideoBlob) : null;
+          return { meta, url, backUrl, source: "local" as const, speedTrack: rec?.speedTrack };
+        }),
       );
+
+      const localSessionIds = new Set(localMetas.map((m) => m.sessionId).filter(Boolean));
+      const cloudEntries: DriveEntry[] = serverResult.sessions
+        .filter((s) => s.videoKey && !localSessionIds.has(s.id))
+        .map((s) => ({
+          meta: {
+            id: s.id,
+            timestamp: new Date(s.startedAt).getTime(),
+            duration: s.endedAt
+              ? Math.round((new Date(s.endedAt).getTime() - new Date(s.startedAt).getTime()) / 1000)
+              : 0,
+            mimeType: "video/webm",
+            score: s.score ?? 0,
+            sessionId: s.id,
+          },
+          url: "",
+          backUrl: null,
+          source: "cloud" as const,
+          videoKey: s.videoKey!,
+        }));
+
+      const all = [...localEntries, ...cloudEntries].sort(
+        (a, b) => b.meta.timestamp - a.meta.timestamp,
+      );
+
       setDrives((prev) => {
-        prev.forEach((d) => { if (d.url) URL.revokeObjectURL(d.url); });
-        return entries;
+        prev.forEach((d) => {
+          if (d.source === "local") {
+            if (d.url) URL.revokeObjectURL(d.url);
+            if (d.backUrl) URL.revokeObjectURL(d.backUrl);
+          }
+        });
+        return all;
       });
       setSelectedIdx(0);
     } catch (e) {
@@ -76,10 +134,7 @@ function ReplayPage() {
     }
   }, []);
 
-  // Reload on mount, when refreshKey changes (navigated from record page), or on window focus
-  useEffect(() => {
-    loadDrives();
-  }, [loadDrives, refreshKey]);
+  useEffect(() => { loadDrives(); }, [loadDrives, refreshKey]);
 
   useEffect(() => {
     const onFocus = () => loadDrives();
@@ -87,49 +142,64 @@ function ReplayPage() {
     return () => window.removeEventListener("focus", onFocus);
   }, [loadDrives]);
 
-  // Reset video state when selected drive changes
+  // Reset player state when selected drive changes
   useEffect(() => {
     setPlaying(false);
     setCurrentTime(0);
     setDuration(drives[selectedIdx]?.meta.duration ?? 0);
+    setActiveCamera(drives[selectedIdx]?.backUrl ? "back" : "front");
   }, [selectedIdx, drives]);
+
+  // Lazily resolve cloud video URL when a cloud drive is selected
+  useEffect(() => {
+    const drive = drives[selectedIdx];
+    if (drive?.source === "cloud" && !drive.url && drive.videoKey) {
+      const key = drive.videoKey;
+      client.getVideoDownloadUrl({ key }).then(({ url }) => {
+        setDrives((prev) =>
+          prev.map((d) => (d.videoKey === key ? { ...d, url } : d)),
+        );
+      }).catch((err) => console.error("Failed to get cloud video URL:", err));
+    }
+  }, [selectedIdx]);
 
   const getPercent = () => (duration > 0 ? (currentTime / duration) * 100 : 0);
 
   const scrubTo = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
       const track = trackRef.current;
-      const video = videoRef.current;
-      if (!track || !video || !duration) return;
+      const front = frontVideoRef.current;
+      const back = backVideoRef.current;
+      if (!track || !front || !duration) return;
       const rect = track.getBoundingClientRect();
       const clientX = "touches" in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
       const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      video.currentTime = ratio * duration;
-      setCurrentTime(video.currentTime);
+      front.currentTime = ratio * duration;
+      if (back) back.currentTime = ratio * duration;
+      setCurrentTime(front.currentTime);
     },
     [duration]
   );
 
   const togglePlay = () => {
-    const video = videoRef.current;
-    if (!video || !drives[selectedIdx]?.url) return;
-    if (playing) { video.pause(); setPlaying(false); }
-    else { video.play().catch(() => {}); setPlaying(true); }
-  };
-
-  const handleDownload = () => {
-    const drive = drives[selectedIdx];
-    if (!drive?.url) return;
-    const a = document.createElement("a");
-    a.href = drive.url;
-    a.download = `beesafe-${new Date(drive.meta.timestamp).toISOString().slice(0, 10)}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const front = frontVideoRef.current;
+    const back = backVideoRef.current;
+    const selected = drives[selectedIdx];
+    if (!front || !selected?.url) return;
+    if (playing) {
+      front.pause();
+      back?.pause();
+      setPlaying(false);
+    } else {
+      front.play().catch(() => {});
+      back?.play().catch(() => {});
+      setPlaying(true);
+    }
   };
 
   const selected = drives[selectedIdx];
   const color = selected ? scoreColor(selected.meta.score) : "#22c55e";
+  const dateStr = selected ? new Date(selected.meta.timestamp).toISOString().slice(0, 10) : "recording";
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -148,16 +218,43 @@ function ReplayPage() {
             {/* Video */}
             <div className="relative w-full overflow-hidden rounded-2xl bg-card border border-border" style={{ aspectRatio: "16/9" }}>
               {selected?.url ? (
-                <video
-                  key={selected.meta.id}
-                  ref={videoRef}
-                  src={selected.url}
-                  className="absolute inset-0 h-full w-full object-cover"
-                  playsInline
-                  onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? selected.meta.duration)}
-                  onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime ?? 0)}
-                  onEnded={() => setPlaying(false)}
-                />
+                <>
+                  {/* Front cam */}
+                  <video
+                    key={`${selected.meta.id}-front`}
+                    ref={frontVideoRef}
+                    src={selected.url}
+                    className={activeCamera === "front"
+                      ? "absolute inset-0 z-0 h-full w-full object-cover"
+                      : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
+                    onClick={() => activeCamera === "back" && setActiveCamera("front")}
+                    playsInline
+                    onLoadedMetadata={() => {
+                      const vidDuration = frontVideoRef.current?.duration;
+                      setDuration(
+                        vidDuration && Number.isFinite(vidDuration) 
+                          ? vidDuration 
+                          : selected.meta.duration
+                      );
+                    }}
+                    onTimeUpdate={() => setCurrentTime(frontVideoRef.current?.currentTime ?? 0)}
+                    onEnded={() => setPlaying(false)}
+                  />
+
+                  {/* Back cam (PiP — only if available) */}
+                  {selected.backUrl && (
+                    <video
+                      key={`${selected.meta.id}-back`}
+                      ref={backVideoRef}
+                      src={selected.backUrl}
+                      className={activeCamera === "back"
+                        ? "absolute inset-0 z-0 h-full w-full object-cover"
+                        : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
+                      onClick={() => activeCamera === "front" && setActiveCamera("back")}
+                      playsInline
+                    />
+                  )}
+                </>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-sm text-muted-foreground">
@@ -169,7 +266,7 @@ function ReplayPage() {
               {/* Play/pause */}
               <button
                 onClick={togglePlay}
-                className="absolute bottom-3 left-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm"
+                className="absolute bottom-3 left-3 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm"
               >
                 {playing
                   ? <Pause size={18} fill="white" color="white" />
@@ -180,21 +277,23 @@ function ReplayPage() {
               {/* Download */}
               {selected?.url && (
                 <button
-                  onClick={handleDownload}
-                  className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm"
+                  onClick={() => setShowDownloadSheet(true)}
+                  className="absolute bottom-3 right-3 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm"
                   title="Download recording"
                 >
                   <Download size={16} color="white" />
                 </button>
               )}
 
-              {/* Score badge */}
+              {/* Speed / score badge (top-right) */}
               {selected && (
-                <div
-                  className="absolute top-3 right-3 rounded-full px-3 py-1 text-sm font-black backdrop-blur-sm"
-                  style={{ color, backgroundColor: "rgba(0,0,0,0.5)" }}
-                >
-                  {selected.meta.score}
+                <div className="absolute top-3 right-3 z-20 flex flex-col items-center rounded-xl bg-black/60 px-3 py-2 backdrop-blur-sm min-w-[56px]">
+                  <span className="font-mono text-xl font-black text-white leading-none">
+                    {selected.speedTrack?.length
+                      ? Math.round(speedAtTime(selected.speedTrack, currentTime) ?? 0)
+                      : "–"}
+                  </span>
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mt-0.5">km/h</span>
                 </div>
               )}
             </div>
@@ -301,7 +400,12 @@ function ReplayPage() {
                       style={selectedIdx === i ? { backgroundColor: "rgba(234,179,8,0.06)" } : {}}
                     >
                       <div>
-                        <p className="text-sm font-semibold">{relDate(d.meta.timestamp)}</p>
+                        <p className="text-sm font-semibold">
+                          {relDate(d.meta.timestamp)}
+                          {d.source === "cloud" && (
+                            <span className="ml-1.5 text-[9px] font-semibold uppercase tracking-wide text-primary">Cloud</span>
+                          )}
+                        </p>
                         <p className="text-xs text-muted-foreground">{fmtTime(d.meta.timestamp)} · {fmt(d.meta.duration)}</p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -319,6 +423,70 @@ function ReplayPage() {
 
         </div>
       </div>
+
+      {/* Download sheet */}
+      {showDownloadSheet && selected && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowDownloadSheet(false)}
+        >
+          <div
+            className="w-full max-w-sm mx-4 rounded-2xl bg-zinc-900 border border-white/10 px-6 py-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-white font-bold text-base text-center mb-4">Download recordings</p>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between rounded-xl bg-white/5 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-white">Front cam</p>
+                  <p className="text-[10px] text-white/40">Driver view</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = selected.url;
+                    a.download = `front-cam-${dateStr}`;
+                    a.click();
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-white active:bg-white/20"
+                >
+                  <Download size={12} />
+                  Download
+                </button>
+              </div>
+              {selected.backUrl && (
+                <div className="flex items-center justify-between rounded-xl bg-white/5 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-white">Back cam</p>
+                    <p className="text-[10px] text-white/40">Road view</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const a = document.createElement("a");
+                      a.href = selected.backUrl!;
+                      a.download = `back-cam-${dateStr}`;
+                      a.click();
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-white active:bg-white/20"
+                  >
+                    <Download size={12} />
+                    Download
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDownloadSheet(false)}
+              className="mt-4 w-full rounded-xl bg-white/10 py-3 text-sm font-semibold text-white/70"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <DriverFeedback
         isOpen={showReport}

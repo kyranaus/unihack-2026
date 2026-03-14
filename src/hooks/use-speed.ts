@@ -4,6 +4,10 @@ type SpeedState = {
 	speedKmh: number | null;
 	hasPermission: boolean | null;
 	error: string | null;
+	latitude: number | null;
+	longitude: number | null;
+	accuracy: number | null;
+	heading: number | null;
 };
 
 export function useSpeed() {
@@ -11,6 +15,10 @@ export function useSpeed() {
 		speedKmh: null,
 		hasPermission: null,
 		error: null,
+		latitude: null,
+		longitude: null,
+		accuracy: null,
+		heading: null,
 	});
 
 	useEffect(() => {
@@ -34,6 +42,10 @@ export function useSpeed() {
 					speedKmh,
 					hasPermission: true,
 					error: null,
+					latitude: position.coords.latitude,
+					longitude: position.coords.longitude,
+					accuracy: position.coords.accuracy,
+					heading: position.coords.heading,
 				});
 			},
 			(error) => {

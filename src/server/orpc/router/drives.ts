@@ -1,13 +1,38 @@
 import { os } from "@orpc/server"
 import * as z from "zod"
+import { Prisma } from "#/generated/prisma/client.js"
 import { prisma } from "#/server/db"
 import { analyseFrames, summariseDrive } from "#/server/ai/analyse-frames"
+import { auth } from "#/server/auth"
+import { getRequestHeaders } from "@tanstack/react-start/server"
+import {
+  getUploadUrl,
+  getDownloadUrl,
+  videoKey,
+  initiateMultipartUpload,
+  getPartUploadUrl,
+  completeMultipartUpload,
+  abortMultipartUpload,
+} from "#/server/s3"
 
 const cameraEnum = z.enum(["front", "back"])
 
+async function getCurrentUserId(): Promise<string | null> {
+  try {
+    const headers = getRequestHeaders()
+    const session = await auth.api.getSession({ headers })
+    return session?.user?.id ?? null
+  } catch {
+    return null
+  }
+}
+
 export const startSession = os.input(z.object({})).handler(async () => {
+  const userId = await getCurrentUserId()
   console.log("[BeeSafe] Starting new drive session...")
-  const session = await prisma.driveSession.create({ data: {} })
+  const session = await prisma.driveSession.create({
+    data: { userId },
+  })
   console.log("[BeeSafe] Session created:", session.id)
   return { sessionId: session.id }
 })
@@ -72,7 +97,7 @@ export const logDriverEvent = os
           elapsedSec: input.elapsedSec,
           summary: input.summary,
           severity: input.severity,
-          metadata: input.metadata ?? {},
+          metadata: (input.metadata ?? {}) as Prisma.InputJsonObject,
         },
       })
 
@@ -114,6 +139,8 @@ export const endSession = os
       orderBy: { elapsedSec: "asc" },
     })
 
+    const score = computeScore(events)
+
     let summary: string | null = null
     if (events.length > 0) {
       summary = await summariseDrive(
@@ -122,11 +149,10 @@ export const endSession = os
           summary: e.summary,
           severity: e.severity,
           type: e.type,
-        }))
+        })),
+        score
       )
     }
-
-    const score = computeScore(events)
     const cameras = [...new Set(events.map((e) => e.camera))]
 
     console.log(`[BeeSafe] Session ended: ${events.length} events, score=${score}, cameras=${cameras.join(",")}`)
@@ -152,8 +178,19 @@ export const getSession = os
   })
 
 export const getProfileStats = os.input(z.object({})).handler(async () => {
+  const userId = await getCurrentUserId()
+  if (!userId) {
+    return {
+      totalDrives: 0,
+      avgScore: 0,
+      totalHours: 0,
+      recentDrives: [],
+      scoreTrend: 0,
+    }
+  }
+
   const sessions = await prisma.driveSession.findMany({
-    where: { endedAt: { not: null } },
+    where: { userId, endedAt: { not: null } },
     orderBy: { startedAt: "desc" },
     include: { events: true },
   })
@@ -192,3 +229,163 @@ export const getProfileStats = os.input(z.object({})).handler(async () => {
     scoreTrend,
   }
 })
+
+export const getLeaderboard = os.input(z.object({})).handler(async () => {
+  const sessions = await prisma.driveSession.findMany({
+    where: { endedAt: { not: null }, score: { not: null } },
+    select: {
+      userId: true,
+      startedAt: true,
+      endedAt: true,
+      score: true,
+      user: { select: { name: true } },
+    },
+  })
+
+  // Only sessions longer than 30 seconds
+  const validSessions = sessions.filter((s) => {
+    if (!s.endedAt) return false
+    return s.endedAt.getTime() - s.startedAt.getTime() >= 30_000
+  })
+
+  const userMap = new Map<string, { name: string; scores: number[] }>()
+  for (const s of validSessions) {
+    const key = s.userId ?? "anonymous"
+    if (!userMap.has(key)) {
+      userMap.set(key, { name: s.user?.name ?? "Anonymous", scores: [] })
+    }
+    userMap.get(key)!.scores.push(s.score!)
+  }
+
+  const entries = Array.from(userMap.entries())
+    .map(([userId, { name, scores }]) => ({
+      userId,
+      name,
+      avgScore: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length),
+      totalDrives: scores.length,
+    }))
+    .sort((a, b) => b.avgScore - a.avgScore)
+
+  return { entries }
+})
+
+export const getVideoUploadUrl = os
+  .input(
+    z.object({
+      sessionId: z.string(),
+      camera: cameraEnum,
+      contentType: z.string(),
+    }),
+  )
+  .handler(async ({ input }) => {
+    const { url, key } = await getUploadUrl(
+      input.sessionId,
+      input.camera,
+      input.contentType,
+    )
+    await prisma.driveSession.update({
+      where: { id: input.sessionId },
+      data: { videoKey: key },
+    })
+    return { uploadUrl: url, key }
+  })
+
+export const getVideoDownloadUrl = os
+  .input(z.object({ key: z.string() }))
+  .handler(async ({ input }) => {
+    const url = await getDownloadUrl(input.key)
+    return { url }
+  })
+
+export const listDriveSessions = os.input(z.object({})).handler(async () => {
+  const userId = await getCurrentUserId()
+  if (!userId) return { sessions: [] }
+
+  const sessions = await prisma.driveSession.findMany({
+    where: { userId, endedAt: { not: null } },
+    orderBy: { startedAt: "desc" },
+    select: {
+      id: true,
+      startedAt: true,
+      endedAt: true,
+      score: true,
+      summary: true,
+      cameras: true,
+      videoKey: true,
+    },
+    take: 20,
+  })
+
+  return { sessions }
+})
+
+export const initVideoUpload = os
+  .input(
+    z.object({
+      sessionId: z.string(),
+      camera: cameraEnum,
+      contentType: z.string(),
+    }),
+  )
+  .handler(async ({ input }) => {
+    try {
+      const key = videoKey(input.sessionId, input.camera)
+      const uploadId = await initiateMultipartUpload(key, input.contentType)
+      await prisma.driveSession.update({
+        where: { id: input.sessionId },
+        data: { videoKey: key },
+      })
+      return { uploadId, key }
+    } catch (err) {
+      console.error("[BeeSafe] initVideoUpload ERROR:", err)
+      throw err
+    }
+  })
+
+export const getPartUrl = os
+  .input(
+    z.object({
+      key: z.string(),
+      uploadId: z.string(),
+      partNumber: z.number().int().min(1),
+    }),
+  )
+  .handler(async ({ input }) => {
+    try {
+      const url = await getPartUploadUrl(input.key, input.uploadId, input.partNumber)
+      return { url }
+    } catch (err) {
+      console.error("[BeeSafe] getPartUrl ERROR:", err)
+      throw err
+    }
+  })
+
+export const completeVideoUpload = os
+  .input(
+    z.object({
+      key: z.string(),
+      uploadId: z.string(),
+      parts: z.array(
+        z.object({
+          ETag: z.string(),
+          PartNumber: z.number().int(),
+        }),
+      ),
+    }),
+  )
+  .handler(async ({ input }) => {
+    try {
+      await completeMultipartUpload(input.key, input.uploadId, input.parts)
+      return { success: true }
+    } catch (err) {
+      console.error("[BeeSafe] completeVideoUpload ERROR:", err)
+      throw err
+    }
+  })
+
+export const abortVideoUpload = os
+  .input(z.object({ key: z.string(), uploadId: z.string() }))
+  .handler(async ({ input }) => {
+    await abortMultipartUpload(input.key, input.uploadId)
+    return { success: true }
+  })

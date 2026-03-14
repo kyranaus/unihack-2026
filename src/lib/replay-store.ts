@@ -1,19 +1,26 @@
 // src/lib/replay-store.ts
 const DB_NAME = "beesafe-replays";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = "recordings";
 export const MAX_RECORDINGS = 3;
+
+export interface SpeedSample {
+  elapsedSec: number;
+  speedKmh: number;
+}
 
 export interface Recording {
   id: string;
   timestamp: number;
-  duration: number; // seconds
+  duration: number;
   videoBlob: Blob;
+  backVideoBlob?: Blob;
   mimeType: string;
   score: number;
   sessionId: string | null;
+  speedTrack?: SpeedSample[];
 }
-export type RecordingMeta = Omit<Recording, "videoBlob">;
+export type RecordingMeta = Omit<Recording, "videoBlob" | "backVideoBlob">;
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -33,7 +40,9 @@ function getAllMetas(db: IDBDatabase): Promise<RecordingMeta[]> {
   return new Promise((resolve, reject) => {
     const req = db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).getAll();
     req.onsuccess = () => {
-      const metas = (req.result as Recording[]).map(({ videoBlob: _, ...m }) => m);
+      const metas = (req.result as Recording[]).map(
+        ({ videoBlob: _, backVideoBlob: __, ...m }) => m,
+      );
       resolve(metas.sort((a, b) => b.timestamp - a.timestamp));
     };
     req.onerror = () => reject(req.error);
@@ -54,6 +63,8 @@ export async function saveRecording(
   mimeType: string,
   sessionId: string | null = null,
   score: number | null = null,
+  backBlob?: Blob | null,
+  speedTrack?: SpeedSample[],
 ): Promise<string> {
   const db = await openDB();
   const all = await getAllMetas(db);
@@ -65,7 +76,11 @@ export async function saveRecording(
   }
   const id = crypto.randomUUID();
   const finalScore = score ?? Math.floor(70 + Math.random() * 26);
-  const record: Recording = { id, timestamp: Date.now(), duration, videoBlob: blob, mimeType, score: finalScore, sessionId };
+  const record: Recording = {
+    id, timestamp: Date.now(), duration, videoBlob: blob, mimeType, score: finalScore, sessionId,
+    ...(backBlob ? { backVideoBlob: backBlob } : {}),
+    ...(speedTrack?.length ? { speedTrack } : {}),
+  };
   return new Promise((resolve, reject) => {
     const req = db.transaction(STORE_NAME, "readwrite").objectStore(STORE_NAME).add(record);
     req.onsuccess = () => { resolve(id); db.close(); };

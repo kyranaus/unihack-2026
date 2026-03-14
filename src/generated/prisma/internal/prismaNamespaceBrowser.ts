@@ -91,6 +91,7 @@ export const UserScalarFieldEnum = {
   email: 'email',
   emailVerified: 'emailVerified',
   image: 'image',
+  isAnonymous: 'isAnonymous',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -145,11 +146,13 @@ export type VerificationScalarFieldEnum = (typeof VerificationScalarFieldEnum)[k
 
 export const DriveSessionScalarFieldEnum = {
   id: 'id',
+  userId: 'userId',
   startedAt: 'startedAt',
   endedAt: 'endedAt',
   summary: 'summary',
   score: 'score',
   cameras: 'cameras',
+  videoKey: 'videoKey',
   createdAt: 'createdAt'
 } as const
 

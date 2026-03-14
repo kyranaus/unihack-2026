@@ -2,10 +2,18 @@
 import { useRef, useState, useCallback } from "react";
 import type { RefObject } from "react";
 
+export interface SpeedSample {
+  elapsedSec: number;
+  speedKmh: number;
+}
+
 export interface PendingRecording {
   blob: Blob;
   duration: number;
   mimeType: string;
+  frontBlob?: Blob | null;
+  backBlob?: Blob | null;
+  speedTrack?: SpeedSample[];
 }
 
 function getSupportedMimeType(): string {

@@ -1,9 +1,11 @@
 import { betterAuth } from 'better-auth'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
+import { anonymous } from 'better-auth/plugins'
 import { prisma } from '#/server/db'
 
 export const auth = betterAuth({
+  trustedOrigins: ["*"],
   baseURL: process.env.BETTER_AUTH_URL,
   database: prismaAdapter(prisma, { provider: 'postgresql' }),
   emailAndPassword: { enabled: true },
@@ -13,5 +15,15 @@ export const auth = betterAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     },
   },
-  plugins: [tanstackStartCookies()],
+  plugins: [
+    tanstackStartCookies(),
+    anonymous({
+      onLinkAccount: async ({ anonymousUser, newUser }) => {
+        await prisma.driveSession.updateMany({
+          where: { userId: anonymousUser.user.id },
+          data: { userId: newUser.user.id },
+        })
+      },
+    }),
+  ],
 })

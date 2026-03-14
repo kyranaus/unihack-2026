@@ -2,12 +2,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSupportedMimeType } from "#/lib/media-utils";
 
-export function useMediaRecorder(stream: MediaStream | null) {
+interface Options {
+  onChunk?: (chunk: Blob) => void;
+}
+
+export function useMediaRecorder(stream: MediaStream | null, options?: Options) {
 	const [isRecording, setIsRecording] = useState(false);
 	const [duration, setDuration] = useState(0);
 	const recorderRef = useRef<MediaRecorder | null>(null);
 	const chunksRef = useRef<Blob[]>([]);
 	const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const onChunkRef = useRef(options?.onChunk);
+	onChunkRef.current = options?.onChunk;
 
 	const startRecording = useCallback(() => {
 		if (!stream || recorderRef.current?.state === "recording") return;
@@ -20,7 +26,10 @@ export function useMediaRecorder(stream: MediaStream | null) {
 		);
 
 		recorder.ondataavailable = (e) => {
-			if (e.data.size > 0) chunksRef.current.push(e.data);
+			if (e.data.size > 0) {
+				chunksRef.current.push(e.data);
+				onChunkRef.current?.(e.data);
+			}
 		};
 
 		recorder.start(1000);

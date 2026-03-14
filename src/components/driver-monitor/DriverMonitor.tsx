@@ -14,6 +14,7 @@ import { client } from "#/server/orpc/client";
 import type { PendingRecording } from "#/hooks/useRecording";
 import { getSupportedMimeType } from "#/lib/media-utils";
 import { SaveRecordingDialog } from "#/components/SaveRecordingDialog";
+import { useStreamingUpload } from "#/hooks/use-streaming-upload";
 import { CameraPicker } from "./CameraPicker";
 import { DriverCamera } from "./DriverCamera";
 import { MetricsBar } from "./MetricsBar";
@@ -122,12 +123,22 @@ export default function DriverMonitor() {
 	const backCamera = useCamera(roadSource, frontCamera.isReady);
 
 	const detection = useFaceDetection(frontCamera.videoRef, canvasRef);
+	const streamUpload = useStreamingUpload();
 	const frontRecorder = useMediaRecorder(frontCamera.stream);
-	const backRecorder = useMediaRecorder(backCamera.stream);
+	const backRecorder = useMediaRecorder(backCamera.stream, {
+		onChunk: (chunk) => streamUpload.pushChunk(chunk),
+	});
 
 	useDriverEventLogger(detection.driverState, detection.metrics, "front");
 
 	const lastAISummaryRef = useRef("");
+	const liveLogRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		if (liveLogRef.current) {
+			liveLogRef.current.scrollTop = liveLogRef.current.scrollHeight;
+		}
+	}, [liveLog]);
 
 	const handleFrameBatch = useCallback(async (frames: string[]) => {
 		const sessionId = sessionIdRef.current;
@@ -150,13 +161,29 @@ export default function DriverMonitor() {
 
 	useFrameCapture(frontCamera.videoRef, frontRecorder.isRecording, handleFrameBatch);
 
-	const { speedKmh } = useSpeed();
+	const { speedKmh, latitude, longitude, accuracy, heading } = useSpeed();
 
 	const crash = useCrashDetection({
 		speedKmh,
 		onCrash: () => {
 			try {
 				if (typeof window !== "undefined") {
+					// Capture location at time of crash
+					const crashLocation = {
+						latitude,
+						longitude,
+						accuracy,
+						heading,
+						speedKmh,
+					};
+					
+					// Store crash location for emergency page
+					try {
+						window.sessionStorage.setItem("dashcam.crashLocation", JSON.stringify(crashLocation));
+					} catch {
+						// ignore storage errors
+					}
+					
 					// Simple prompt-style alert so the driver knows a crash was detected.
 					try {
 						window.alert("Crash detected. Opening emergency screen…");
@@ -201,12 +228,15 @@ export default function DriverMonitor() {
 		frontRecorder.startRecording();
 		backRecorder.startRecording();
 		addLog("Starting session...");
-		client.startSession({}).then(({ sessionId }) => {
+		client.startSession({}).then(async ({ sessionId }) => {
 			sessionIdRef.current = sessionId;
 			driveSessionStore.setState(() => ({ sessionId, startedAt: Date.now() }));
 			addLog(`Session started: ${sessionId.slice(0, 8)}...`);
+			const mimeType = getSupportedMimeType() || "video/webm";
+			await streamUpload.start(sessionId, "back", mimeType);
+			addLog("Cloud upload streaming...");
 		}).catch((err) => addLog(`Session start FAILED: ${err}`));
-	}, [frontRecorder, backRecorder, addLog]);
+	}, [frontRecorder, backRecorder, addLog, streamUpload]);
 
 	const handleStopRecording = useCallback(async () => {
 		const duration = frontRecorder.duration || backRecorder.duration || 0;
@@ -221,6 +251,10 @@ export default function DriverMonitor() {
 		if (sessionId) {
 			lastSessionIdRef.current = sessionId;
 			setEnding(true);
+			addLog("Finishing cloud upload...");
+			const uploaded = await streamUpload.finish();
+			addLog(uploaded ? "Cloud upload complete" : "Cloud upload skipped");
+
 			addLog("Ending session, generating summary...");
 			try {
 				const { summary, score } = await client.endSession({ sessionId });
@@ -245,7 +279,7 @@ export default function DriverMonitor() {
 				mimeType: getSupportedMimeType() || "video/webm",
 			});
 		}
-	}, [frontRecorder, backRecorder, addLog]);
+	}, [frontRecorder, backRecorder, addLog, streamUpload]);
 
 	const toggleViewMode = useCallback(() => {
 		setViewMode((m) => (m === "road" ? "face" : "road"));
@@ -398,7 +432,7 @@ export default function DriverMonitor() {
 				)}
 
 				{liveLog.length > 0 && (
-					<div className="absolute inset-x-3 bottom-20 z-20 max-h-28 overflow-y-auto rounded-xl bg-black/80 border border-zinc-700 px-3 py-2 backdrop-blur-sm">
+					<div ref={liveLogRef} className="absolute inset-x-3 bottom-20 z-20 max-h-28 overflow-y-auto rounded-xl bg-black/80 border border-zinc-700 px-3 py-2 backdrop-blur-sm">
 						<p className="text-[9px] font-semibold uppercase tracking-widest text-zinc-500 mb-1">Live Log</p>
 						{liveLog.map((line, i) => (
 							<p key={i} className="font-mono text-[10px] leading-relaxed text-zinc-300">{line}</p>
@@ -420,6 +454,8 @@ export default function DriverMonitor() {
 				<MetricsBar
 					metrics={detection.metrics}
 					driverState={detection.driverState}
+					calSamples={detection.calSamples}
+					earThreshold={detection.earThreshold}
 				/>
 			)}
 

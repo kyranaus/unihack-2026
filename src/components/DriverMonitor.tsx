@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { DriverState, SmoothedMetrics } from "#/lib/driver-monitor-utils";
+import type { FaceLandmarker, FaceLandmarkerResult, NormalizedLandmark } from "@mediapipe/tasks-vision";
+import type { DriverState, EarCalibration, SmoothedMetrics } from "#/lib/driver-monitor-utils";
 import { useDriverEventLogger } from "#/hooks/useDriverEventLogger";
 import {
   CONFIG,
@@ -8,9 +9,12 @@ import {
   STATE_DISPLAY,
   computeEAR,
   computeHeadPose,
+  createEarCalibration,
   drawOverlay,
   ema,
+  getEarThreshold,
   getHeadDirection,
+  updateEarCalibration,
 } from "#/lib/driver-monitor-utils";
 
 const EAR_OPEN_REF = 0.32;
@@ -34,8 +38,7 @@ export default function DriverMonitor() {
   useEffect(() => {
     let animFrameId: number;
     let stream: MediaStream | null = null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let landmarker: any = null;
+    let landmarker: FaceLandmarker | null = null;
     let disposed = false;
 
     const s = {
@@ -50,6 +53,7 @@ export default function DriverMonitor() {
       lastFpsTime: performance.now(),
       lastRenderTime: 0,
       currentFps: 0,
+      cal: createEarCalibration() as EarCalibration,
     };
 
     async function init() {
@@ -62,16 +66,30 @@ export default function DriverMonitor() {
         const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL);
         if (disposed) return;
 
-        landmarker = await FaceLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: FACE_LANDMARKER_MODEL_URL,
-            delegate: "GPU",
-          },
-          runningMode: "VIDEO",
-          numFaces: 1,
-          outputFaceBlendshapes: false,
-          outputFacialTransformationMatrixes: false,
-        });
+        try {
+          landmarker = await FaceLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: FACE_LANDMARKER_MODEL_URL,
+              delegate: "GPU",
+            },
+            runningMode: "VIDEO",
+            numFaces: 1,
+            outputFaceBlendshapes: false,
+            outputFacialTransformationMatrixes: false,
+          });
+        } catch {
+          console.warn("[FaceDetect] GPU delegate failed, falling back to CPU");
+          landmarker = await FaceLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: FACE_LANDMARKER_MODEL_URL,
+              delegate: "CPU",
+            },
+            runningMode: "VIDEO",
+            numFaces: 1,
+            outputFaceBlendshapes: false,
+            outputFacialTransformationMatrixes: false,
+          });
+        }
         if (disposed) {
           landmarker.close();
           return;
@@ -89,8 +107,17 @@ export default function DriverMonitor() {
           return;
         }
 
-        const video = videoRef.current;
-        if (!video) return;
+        let video = videoRef.current;
+        for (let i = 0; !video && i < 20; i++) {
+          await new Promise((r) => setTimeout(r, 100));
+          if (disposed) return;
+          video = videoRef.current;
+        }
+        if (!video) {
+          console.error("[FaceDetect] videoRef never became available");
+          setLoading(false);
+          return;
+        }
         video.srcObject = stream;
         await video.play();
 
@@ -130,10 +157,16 @@ export default function DriverMonitor() {
         s.lastFpsTime = now;
       }
 
-      const results = landmarker.detectForVideo(video, now);
+      let results: FaceLandmarkerResult;
+      try {
+        results = landmarker!.detectForVideo(video, now);
+      } catch {
+        animFrameId = requestAnimationFrame(detect);
+        return;
+      }
       const hasFace =
         results.faceLandmarks && results.faceLandmarks.length > 0;
-      const landmarks = hasFace ? results.faceLandmarks[0] : null;
+      const landmarks: NormalizedLandmark[] | null = hasFace ? results.faceLandmarks[0] : null;
 
       if (!hasFace) {
         s.noFaceFrames++;
@@ -152,7 +185,10 @@ export default function DriverMonitor() {
         s.smoothedYaw = ema(pose.yawRatio, s.smoothedYaw, CONFIG.HEAD_SMOOTHING);
         s.smoothedPitch = ema(pose.pitchRatio, s.smoothedPitch, CONFIG.HEAD_SMOOTHING);
 
-        if (s.smoothedEAR < CONFIG.EAR_THRESHOLD) {
+        updateEarCalibration(s.cal, ear.average, pose.yawRatio, pose.pitchRatio);
+        const earThreshold = getEarThreshold(s.cal);
+
+        if (s.smoothedEAR < earThreshold) {
           if (!s.eyesClosedSince) s.eyesClosedSince = now;
         } else {
           s.eyesClosedSince = null;
@@ -193,7 +229,7 @@ export default function DriverMonitor() {
       ctx.save();
       ctx.translate(-ox, -oy);
       ctx.scale(coverScale, coverScale);
-      drawOverlay(ctx, vw, vh, landmarks, s.smoothedEAR < CONFIG.EAR_THRESHOLD, true);
+      drawOverlay(ctx, vw, vh, landmarks, s.smoothedEAR < getEarThreshold(s.cal), true);
       ctx.restore();
 
       if (now - s.lastRenderTime > CONFIG.RENDER_INTERVAL_MS) {
@@ -212,7 +248,7 @@ export default function DriverMonitor() {
       disposed = true;
       cancelAnimationFrame(animFrameId);
       if (stream) stream.getTracks().forEach((t) => t.stop());
-      if (landmarker) (landmarker as any).close();
+      if (landmarker) landmarker.close();
     };
   }, []);
 

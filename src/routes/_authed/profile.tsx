@@ -1,4 +1,4 @@
-// src/routes/profile.tsx
+// src/routes/_authed/profile.tsx
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Moon, Sun, TrendingUp, TrendingDown, LogOut } from "lucide-react";
@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { DriverFeedback } from "#/components/DriverFeedback";
 import type { SessionData } from "#/components/DriverFeedback";
 
-export const Route = createFileRoute("/profile")({ component: ProfilePage });
+export const Route = createFileRoute("/_authed/profile")({ component: ProfilePage });
 
 function relDate(ts: Date | string): string {
   const date = typeof ts === "string" ? new Date(ts) : ts;
@@ -49,7 +49,7 @@ function ScoreArc({ score }: { score: number }) {
 
 function ProfilePage() {
   const navigate = useNavigate();
-  const { data: session, isPending } = authClient.useSession();
+  const { user } = Route.useRouteContext();
   const [light, setLight] = useState(() =>
     document.documentElement.classList.contains("light")
   );
@@ -74,14 +74,7 @@ function ProfilePage() {
     }
   }, [light]);
 
-  if (isPending) return null;
-
-  if (!session?.user) {
-    navigate({ to: "/login" });
-    return null;
-  }
-
-  const USERNAME = session.user.name || "Driver";
+  const USERNAME = user.name || "Driver";
   const DRIVER_SCORE = profileStats?.avgScore ?? 0;
   const SCORE_TREND = profileStats?.scoreTrend ?? 0;
   
@@ -93,7 +86,7 @@ function ProfilePage() {
 
   const handleSignOut = async () => {
     await authClient.signOut();
-    navigate({ to: "/login" });
+    navigate({ to: "/login", search: { redirect: undefined } });
   };
 
   const handleDriveClick = async (sessionId: string) => {

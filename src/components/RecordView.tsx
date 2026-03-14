@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import type { DriverState, SmoothedMetrics } from "#/lib/driver-monitor-utils";
+import type { DriverState, EarCalibration, SmoothedMetrics } from "#/lib/driver-monitor-utils";
 import {
   CONFIG,
   FACE_LANDMARKER_MODEL_URL,
@@ -11,11 +11,16 @@ import {
   STATE_DISPLAY,
   computeEAR,
   computeHeadPose,
+  createEarCalibration,
   drawOverlay,
   ema,
+  getEarThreshold,
   getHeadDirection,
+  updateEarCalibration,
 } from "#/lib/driver-monitor-utils";
+import type { FaceLandmarker, FaceLandmarkerResult, NormalizedLandmark } from "@mediapipe/tasks-vision";
 import { useCamera } from "#/hooks/use-camera";
+import { useCameraMode } from "#/hooks/use-camera-mode";
 import { useMediaRecorder } from "#/hooks/use-media-recorder";
 import { useFrameCapture } from "#/hooks/useFrameCapture";
 import { useDriverEventLogger } from "#/hooks/useDriverEventLogger";
@@ -28,6 +33,7 @@ import { client } from "#/server/orpc/client";
 import { getSupportedMimeType } from "#/lib/media-utils";
 import { SaveRecordingDialog } from "#/components/SaveRecordingDialog";
 import { CameraPicker } from "#/components/driver-monitor/CameraPicker";
+import { useStreamingUpload } from "#/hooks/use-streaming-upload";
 import type { PendingRecording } from "#/hooks/useRecording";
 import { DriverFeedback, type SessionData } from "#/components/DriverFeedback";
 
@@ -59,29 +65,48 @@ export default function RecordView() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  // Camera mode: dual (Android/desktop) vs single (iOS / fallback)
+  const { mode: cameraMode, isIOS, downgradeToSingle } = useCameraMode();
+  const isSingleCam = cameraMode === "single";
+
   // Camera device selection
   const devices = useCameraDevices();
   const [driverDeviceId, setDriverDeviceId] = useState<string | null>(null);
   const [roadDeviceId, setRoadDeviceId] = useState<string | null>(null);
-  const [activeCamera, setActiveCamera] = useState<"front" | "back">("front");
+  const [activeCamera, setActiveCamera] = useState<"front" | "back">(isSingleCam ? "back" : "front");
 
   // Front camera stream (exposed from MediaPipe init for dual recording)
   const [frontStream, setFrontStream] = useState<MediaStream | null>(null);
   const [frontReady, setFrontReady] = useState(false);
 
-  // Back camera via useCamera (waits for front, supports device selection)
+  // Back camera via useCamera
+  // Dual mode: waits for front to be ready before opening. Single mode: only when back is active.
   const roadSource = roadDeviceId ? { deviceId: roadDeviceId } : { facingMode: "environment" as const };
-  const backCamera = useCamera(roadSource, frontReady);
+  const backCamEnabled = isSingleCam ? activeCamera === "back" : frontReady;
+  const backCamera = useCamera(roadSource, backCamEnabled);
 
-  // Dual recording
+  // Streaming S3 upload (chunks uploaded during recording)
+  const streamUpload = useStreamingUpload();
+
+  // Recording — in single mode only one recorder is active at a time
   const frontRecorder = useMediaRecorder(frontStream);
-  const backRecorder = useMediaRecorder(backCamera.stream);
-  const isRecording = frontRecorder.isRecording;
+  const backRecorder = useMediaRecorder(backCamera.stream, { onChunk: streamUpload.pushChunk });
+  const isRecording = frontRecorder.isRecording || backRecorder.isRecording;
+  const wantRecordingRef = useRef(false);
+
+  // Composite canvas recording refs
+  const compositeRecorderRef = useRef<MediaRecorder | null>(null);
+  const compositeChunksRef = useRef<Blob[]>([]);
+  const drawLoopActiveRef = useRef(false);
+  const compositeMainCamRef = useRef<"front" | "back">("back");
+
 
   // State
   const [pendingRec, setPendingRec] = useState<PendingRecording | null>(null);
   const [driverState, setDriverState] = useState<DriverState>("NO_FACE");
   const [metrics, setMetrics] = useState<SmoothedMetrics>({ ear: 0, yaw: 1, pitch: 0.7 });
+  const [calSamples, setCalSamples] = useState(0);
+  const [earThreshold, setEarThreshold] = useState<number>(CONFIG.EAR_THRESHOLD);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recSeconds, setRecSeconds] = useState(0);
@@ -91,32 +116,49 @@ export default function RecordView() {
   const [sessionScore, setSessionScore] = useState<number | null>(null);
   const [liveLog, setLiveLog] = useState<string[]>([]);
 
-  // iOS + debugAccel
-  const [isIOS, setIsIOS] = useState(false);
+  // debugAccel
   const [debugAccel, setDebugAccel] = useState(false);
   const [motionPermissionHintShown, setMotionPermissionHintShown] = useState(false);
   const [accelSamples, setAccelSamples] = useState<{ g: number; ax: number; ay: number; az: number }[]>([]);
 
   const sessionIdRef = useRef<string | null>(null);
   const recSecondsRef = useRef(0);
+  const speedKmhRef = useRef<number | null>(null);
+  const speedTrackRef = useRef<Array<{ elapsedSec: number; speedKmh: number }>>([]);
   const lastTTSWarningRef = useRef(0);
   const lastSessionIdRef = useRef<string | null>(null);
   const handleStopRecordingRef = useRef<() => void>(() => {});
+  const liveLogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (liveLogRef.current) {
+      liveLogRef.current.scrollTop = liveLogRef.current.scrollHeight;
+    }
+  }, [liveLog]);
 
   const addLog = useCallback((msg: string) => {
     const ts = new Date().toLocaleTimeString("en-AU", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
     setLiveLog((prev) => [...prev.slice(-19), `[${ts}] ${msg}`]);
   }, []);
 
-  // Detect iOS + debugAccel URL param
+  // In single-cam mode with back camera, loading is resolved by back camera readiness
+  useEffect(() => {
+    if (isSingleCam && activeCamera === "back" && backCamera.isReady) {
+      setLoading(false);
+    }
+  }, [isSingleCam, activeCamera, backCamera.isReady]);
+
+  // Keep composite main cam in sync with active camera toggle (dual mode only)
+  useEffect(() => {
+    compositeMainCamRef.current = activeCamera;
+  }, [activeCamera]);
+
+  // Detect debugAccel URL param
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const search = new URLSearchParams(window.location.search);
       setDebugAccel(search.get("debugAccel") === "1");
-      if (typeof navigator !== "undefined") {
-        setIsIOS(/iPhone|iPad|iPod/i.test(navigator.userAgent));
-      }
     } catch {
       setDebugAccel(false);
     }
@@ -125,13 +167,26 @@ export default function RecordView() {
   const { speak } = usePollyTTS();
   useDriverEventLogger(driverState, metrics, "front");
 
-  // GPS speed for crash detection context
-  const { speedKmh } = useSpeed();
+  // GPS speed and location for crash detection context
+  const { speedKmh, latitude, longitude, accuracy, heading } = useSpeed();
+
+  // Keep ref in sync for use inside timer callback
+  useEffect(() => { speedKmhRef.current = speedKmh; }, [speedKmh]);
 
   // Crash detection (better accuracy than useCollisionDetection)
   const handleCrash = useCallback(async ({ g }: { g: number; speedKmh: number | null }) => {
     addLog(`CRASH: ${g.toFixed(1)}g impact detected`);
     const sessionId = sessionIdRef.current;
+    
+    // Capture location at time of crash
+    const crashLocation = {
+      latitude,
+      longitude,
+      accuracy,
+      heading,
+      speedKmh,
+    };
+    
     if (sessionId) {
       await client.logDriverEvent({
         sessionId,
@@ -140,11 +195,19 @@ export default function RecordView() {
         summary: `Collision detected - ${g.toFixed(1)}g impact`,
         severity: "critical",
         camera: "front",
-        metadata: { gForce: g },
+        metadata: { gForce: g, location: crashLocation },
       }).catch(console.error);
     }
+    
+    // Store crash location in session storage for emergency page
+    try {
+      window.sessionStorage.setItem("dashcam.crashLocation", JSON.stringify(crashLocation));
+    } catch {
+      // ignore storage errors
+    }
+    
     navigate({ to: "/emergency" as any });
-  }, [addLog, navigate]);
+  }, [addLog, navigate, latitude, longitude, accuracy, heading, speedKmh]);
 
   const crash = useCrashDetection({ speedKmh, onCrash: handleCrash });
 
@@ -193,11 +256,18 @@ export default function RecordView() {
 
   // REC timer + auto-stop at 5 min
   useEffect(() => {
-    if (!isRecording) { setRecSeconds(0); recSecondsRef.current = 0; return; }
+    if (!isRecording) {
+      setRecSeconds(0);
+      recSecondsRef.current = 0;
+      speedTrackRef.current = [];
+      return;
+    }
     const id = setInterval(() => {
       setRecSeconds((s) => {
         const next = s + 1;
         recSecondsRef.current = next;
+        const spd = speedKmhRef.current;
+        if (spd != null) speedTrackRef.current.push({ elapsedSec: next, speedKmh: spd });
         if (next >= MAX_RECORD_SECS) {
           handleStopRecordingRef.current();
           return 0;
@@ -210,23 +280,116 @@ export default function RecordView() {
 
   // Recording handlers
   const handleStartRecording = useCallback(async () => {
-    // Request iOS motion permission on first user gesture (required for crash detection on iOS)
     if (isIOS) {
       await requestMotionPermission().catch(() => {});
     }
-    frontRecorder.startRecording();
-    backRecorder.startRecording();
+    wantRecordingRef.current = true;
+    if (isSingleCam) {
+      // Single-cam (iOS): only one recorder at a time, no composite
+      if (activeCamera === "front") frontRecorder.startRecording();
+      else backRecorder.startRecording();
+    } else {
+      // Dual-cam (Android): both recorders + composite canvas
+      frontRecorder.startRecording();
+      backRecorder.startRecording();
+
+      const canvas = document.createElement("canvas");
+      canvas.width = 1280;
+      canvas.height = 720;
+      const ctx = canvas.getContext("2d");
+      compositeChunksRef.current = [];
+      drawLoopActiveRef.current = true;
+
+      const PIP_W = 320, PIP_H = 180, PIP_M = 16;
+
+      const drawComposite = () => {
+        if (!drawLoopActiveRef.current || !ctx) return;
+        const isBackMain = compositeMainCamRef.current === "back";
+        const mainVid = isBackMain ? backCamera.videoRef.current : videoRef.current;
+        const pipVid = isBackMain ? videoRef.current : backCamera.videoRef.current;
+
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, 1280, 720);
+
+        if (mainVid && mainVid.readyState >= 2) {
+          if (!isBackMain) {
+            ctx.save();
+            ctx.translate(1280, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(mainVid, 0, 0, 1280, 720);
+            ctx.restore();
+          } else {
+            ctx.drawImage(mainVid, 0, 0, 1280, 720);
+          }
+        }
+
+        const px = PIP_M;
+        const py = PIP_M;
+        if (pipVid && pipVid.readyState >= 2) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.roundRect(px, py, PIP_W, PIP_H, 8);
+          ctx.clip();
+          if (isBackMain) {
+            ctx.translate(px + PIP_W, py);
+            ctx.scale(-1, 1);
+            ctx.drawImage(pipVid, 0, 0, PIP_W, PIP_H);
+          } else {
+            ctx.drawImage(pipVid, px, py, PIP_W, PIP_H);
+          }
+          ctx.restore();
+          ctx.strokeStyle = "rgba(255,255,255,0.6)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.roundRect(px, py, PIP_W, PIP_H, 8);
+          ctx.stroke();
+        }
+
+        requestAnimationFrame(drawComposite);
+      };
+      drawComposite();
+
+      const mimeType = getSupportedMimeType();
+      const compositeStream = canvas.captureStream(30);
+      const compositeRecorder = new MediaRecorder(compositeStream, mimeType ? { mimeType } : undefined);
+      compositeRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          compositeChunksRef.current.push(e.data);
+          streamUpload.pushChunk(e.data);
+        }
+      };
+      compositeRecorder.start(1000);
+      compositeRecorderRef.current = compositeRecorder;
+    }
     addLog("Starting session...");
-    client.startSession({}).then(({ sessionId }) => {
+    client.startSession({}).then(async ({ sessionId }) => {
       sessionIdRef.current = sessionId;
       driveSessionStore.setState(() => ({ sessionId, startedAt: Date.now() }));
       addLog(`Session started: ${sessionId.slice(0, 8)}...`);
+      const mimeType = getSupportedMimeType() || "video/webm";
+      await streamUpload.start(sessionId, "back", mimeType);
+      addLog("Cloud upload streaming...");
     }).catch((err) => addLog(`Session start FAILED: ${err}`));
-  }, [frontRecorder, backRecorder, addLog, isIOS]);
+  }, [frontRecorder, backRecorder, addLog, isIOS, streamUpload, isSingleCam, activeCamera]);
 
   const handleStopRecording = useCallback(async () => {
+    wantRecordingRef.current = false;
     const duration = frontRecorder.duration || backRecorder.duration || 0;
-    const [frontBlob, backBlob] = await Promise.all([
+
+    // Stop composite recorder
+    drawLoopActiveRef.current = false;
+    const stopComposite = new Promise<Blob | null>((resolve) => {
+      const recorder = compositeRecorderRef.current;
+      if (!recorder || recorder.state === "inactive") { resolve(null); return; }
+      recorder.onstop = () => {
+        resolve(new Blob(compositeChunksRef.current, { type: recorder.mimeType || "video/webm" }));
+        compositeRecorderRef.current = null;
+      };
+      recorder.stop();
+    });
+
+    const [compositeBlob, frontBlob, backBlob] = await Promise.all([
+      stopComposite,
       frontRecorder.stopRecording(),
       backRecorder.stopRecording(),
     ]);
@@ -235,6 +398,10 @@ export default function RecordView() {
     if (sessionId) {
       lastSessionIdRef.current = sessionId;
       setEnding(true);
+      addLog("Finishing cloud upload...");
+      const uploaded = await streamUpload.finish();
+      addLog(uploaded ? "Cloud upload complete" : "Cloud upload skipped");
+
       addLog("Ending session, generating summary...");
       try {
         await client.endSession({ sessionId });
@@ -270,21 +437,40 @@ export default function RecordView() {
       }
     }
 
-    const blob = backBlob ?? frontBlob;
+    const blob = compositeBlob ?? backBlob ?? frontBlob;
     if (blob) {
-      setPendingRec({ blob, duration, mimeType: getSupportedMimeType() || "video/webm" });
+      setPendingRec({ blob, duration, mimeType: getSupportedMimeType() || "video/webm", frontBlob, backBlob, speedTrack: [...speedTrackRef.current] });
     }
-  }, [frontRecorder, backRecorder, addLog, queryClient]);
+
+    setLiveLog([]);
+  }, [frontRecorder, backRecorder, addLog, queryClient, streamUpload]);
 
   // Keep ref up-to-date for auto-stop timer
   handleStopRecordingRef.current = handleStopRecording;
 
+  // Flip camera in single-cam mode: stop current recorder, then switch
+  const handleFlipCamera = useCallback(async () => {
+    if (isSingleCam && wantRecordingRef.current) {
+      if (activeCamera === "front") await frontRecorder.stopRecording();
+      else await backRecorder.stopRecording();
+    }
+    setActiveCamera((c) => (c === "front" ? "back" : "front"));
+  }, [isSingleCam, activeCamera, frontRecorder, backRecorder]);
+
   // MediaPipe face detection + front camera init
+  // In single-cam mode, only runs when user has flipped to the front camera.
+  const frontCamEnabled = !isSingleCam || activeCamera === "front";
   useEffect(() => {
+    if (!frontCamEnabled) {
+      setFrontStream(null);
+      setFrontReady(false);
+      setDriverState("NO_FACE");
+      return;
+    }
+
     let animFrameId: number;
     let stream: MediaStream | null = null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let landmarker: any = null;
+    let landmarker: FaceLandmarker | null = null;
     let disposed = false;
 
     const s = {
@@ -297,39 +483,75 @@ export default function RecordView() {
       noFaceFrames: 0,
       currentState: "NO_FACE" as DriverState,
       lastRenderTime: 0,
+      cal: createEarCalibration() as EarCalibration,
     };
 
     async function init() {
       try {
+        console.log("[FaceDetect] Loading MediaPipe...");
         const { FaceLandmarker, FilesetResolver } = await import("@mediapipe/tasks-vision");
-        if (disposed) return;
-        const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL);
-        if (disposed) return;
-        landmarker = await FaceLandmarker.createFromOptions(vision, {
-          baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate: "GPU" },
-          runningMode: "VIDEO",
-          numFaces: 1,
-          outputFaceBlendshapes: false,
-          outputFacialTransformationMatrixes: false,
-        });
-        if (disposed) { landmarker.close(); return; }
+        if (disposed) { console.log("[FaceDetect] disposed after import"); return; }
 
+        console.log("[FaceDetect] Resolving WASM...");
+        const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL);
+        if (disposed) { console.log("[FaceDetect] disposed after WASM"); return; }
+
+        console.log("[FaceDetect] Creating landmarker...");
+        try {
+          landmarker = await FaceLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate: "GPU" },
+            runningMode: "VIDEO",
+            numFaces: 1,
+            outputFaceBlendshapes: false,
+            outputFacialTransformationMatrixes: false,
+          });
+        } catch {
+          console.warn("[FaceDetect] GPU delegate failed, falling back to CPU");
+          landmarker = await FaceLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate: "CPU" },
+            runningMode: "VIDEO",
+            numFaces: 1,
+            outputFaceBlendshapes: false,
+            outputFacialTransformationMatrixes: false,
+          });
+        }
+        if (disposed) { landmarker.close(); console.log("[FaceDetect] disposed after landmarker"); return; }
+
+        console.log("[FaceDetect] Requesting camera...");
         const videoConstraint = driverDeviceId
           ? { deviceId: { exact: driverDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
           : { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } };
         stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraint });
-        if (disposed) { stream.getTracks().forEach((t) => t.stop()); return; }
+        if (disposed) { stream.getTracks().forEach((t) => t.stop()); console.log("[FaceDetect] disposed after getUserMedia"); return; }
 
+        console.log("[FaceDetect] Camera acquired, attaching to video element...");
         setFrontStream(stream);
         setFrontReady(true);
 
-        const video = videoRef.current;
-        if (!video) return;
+        let video = videoRef.current;
+        for (let i = 0; !video && i < 50; i++) {
+          await new Promise((r) => requestAnimationFrame(r));
+          if (disposed) { console.log("[FaceDetect] disposed waiting for video ref"); return; }
+          video = videoRef.current;
+        }
+        if (!video) {
+          console.error("[FaceDetect] videoRef never became available");
+          setLoading(false);
+          return;
+        }
         video.srcObject = stream;
-        await video.play();
+        try {
+          await video.play();
+        } catch (playErr) {
+          console.warn("[FaceDetect] video.play() failed, retrying muted:", playErr);
+          video.muted = true;
+          await video.play();
+        }
+        console.log("[FaceDetect] Video playing, starting detection loop");
         setLoading(false);
         detect();
       } catch (err) {
+        console.error("[FaceDetect] init error:", err);
         if (!disposed) {
           setError(err instanceof Error ? err.message : "Failed to initialize");
           setLoading(false);
@@ -349,9 +571,15 @@ export default function RecordView() {
       const ctx = canvas.getContext("2d");
       if (!ctx) { animFrameId = requestAnimationFrame(detect); return; }
 
-      const results = landmarker.detectForVideo(video, now);
+      let results: FaceLandmarkerResult;
+      try {
+        results = landmarker!.detectForVideo(video, now);
+      } catch {
+        animFrameId = requestAnimationFrame(detect);
+        return;
+      }
       const hasFace = results.faceLandmarks && results.faceLandmarks.length > 0;
-      const landmarks = hasFace ? results.faceLandmarks[0] : null;
+      const landmarks: NormalizedLandmark[] | null = hasFace ? results.faceLandmarks[0] : null;
 
       if (!hasFace) {
         s.noFaceFrames++;
@@ -368,7 +596,10 @@ export default function RecordView() {
         s.smoothedYaw = ema(pose.yawRatio, s.smoothedYaw, CONFIG.HEAD_SMOOTHING);
         s.smoothedPitch = ema(pose.pitchRatio, s.smoothedPitch, CONFIG.HEAD_SMOOTHING);
 
-        if (s.smoothedEAR < CONFIG.EAR_THRESHOLD) {
+        updateEarCalibration(s.cal, ear.average, pose.yawRatio, pose.pitchRatio);
+        const earThreshold = getEarThreshold(s.cal);
+
+        if (s.smoothedEAR < earThreshold) {
           if (!s.eyesClosedSince) s.eyesClosedSince = now;
         } else {
           s.eyesClosedSince = null;
@@ -420,12 +651,14 @@ export default function RecordView() {
       ctx.save();
       ctx.translate(-ox, -oy);
       ctx.scale(coverScale, coverScale);
-      drawOverlay(ctx, vw, vh, landmarks, s.smoothedEAR < CONFIG.EAR_THRESHOLD, true);
+      drawOverlay(ctx, vw, vh, landmarks, s.smoothedEAR < getEarThreshold(s.cal), true);
       ctx.restore();
 
       if (now - s.lastRenderTime > CONFIG.RENDER_INTERVAL_MS) {
         setDriverState(s.currentState);
         setMetrics({ ear: s.smoothedEAR, yaw: s.smoothedYaw, pitch: s.smoothedPitch });
+        setCalSamples(s.cal.buffer.length);
+        setEarThreshold(getEarThreshold(s.cal));
         s.lastRenderTime = now;
       }
       animFrameId = requestAnimationFrame(detect);
@@ -438,12 +671,37 @@ export default function RecordView() {
       setFrontReady(false);
       cancelAnimationFrame(animFrameId);
       if (stream) stream.getTracks().forEach((t) => t.stop());
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (landmarker) (landmarker as any).close();
+      if (landmarker) landmarker.close();
       alarmRef.current?.pause();
       alarmRef.current = null;
     };
-  }, [driverDeviceId]);
+  }, [driverDeviceId, frontCamEnabled]);
+
+  // Dual-mode safety: if the back camera killed the front track (iOS-like), downgrade
+  useEffect(() => {
+    if (isSingleCam || !backCamera.isReady || !frontStream) return;
+    const tracks = frontStream.getVideoTracks();
+    const killed = tracks.length === 0 || tracks.some((t) => t.readyState === "ended");
+    if (killed) {
+      downgradeToSingle();
+      setActiveCamera("back");
+    }
+  }, [isSingleCam, backCamera.isReady, frontStream, downgradeToSingle]);
+
+  // In single-cam mode, auto-start recording on the new camera after a flip
+  useEffect(() => {
+    if (!isSingleCam || !wantRecordingRef.current) return;
+    if (activeCamera === "back" && backCamera.isReady && backCamera.stream && !backRecorder.isRecording) {
+      backRecorder.startRecording();
+    }
+  }, [isSingleCam, activeCamera, backCamera.isReady, backCamera.stream, backRecorder]);
+
+  useEffect(() => {
+    if (!isSingleCam || !wantRecordingRef.current) return;
+    if (activeCamera === "front" && frontReady && frontStream && !frontRecorder.isRecording) {
+      frontRecorder.startRecording();
+    }
+  }, [isSingleCam, activeCamera, frontReady, frontStream, frontRecorder]);
 
   const display = STATE_DISPLAY[driverState];
   const isWarning = driverState !== "ALERT";
@@ -455,11 +713,11 @@ export default function RecordView() {
 
   if (error) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 bg-black p-6">
+      <div className="flex h-full flex-col items-center justify-center gap-4 bg-background p-6">
         <div className="rounded-2xl border border-red-800 bg-red-950 p-6 text-center">
           <p className="text-lg font-semibold text-red-400">Camera Error</p>
           <p className="mt-2 text-sm text-red-300">{error}</p>
-          <p className="mt-2 text-xs text-white/40">
+          <p className="mt-2 text-xs text-foreground/40">
             Allow camera access and ensure no other app is using the webcam.
           </p>
         </div>
@@ -468,33 +726,35 @@ export default function RecordView() {
   }
 
   return (
-    <div className="flex h-dvh flex-col bg-black">
+    <div className="flex h-dvh flex-col bg-background">
       {/* Title */}
       <div
         className="flex flex-none items-center justify-between px-4 pb-2"
         style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
       >
         {/* Front · Back toggle */}
-        <div className="flex items-center rounded-full bg-white/10 p-0.5">
+        <div className="flex items-center rounded-full bg-foreground/10 p-0.5">
           {(["front", "back"] as const).map((cam) => (
             <button
               key={cam}
               type="button"
-              onClick={() => setActiveCamera(cam)}
+              onClick={() => {
+                if (cam !== activeCamera) handleFlipCamera();
+              }}
               className={`rounded-full px-3 py-1 text-xs font-semibold capitalize transition-colors ${
-                activeCamera === cam ? "bg-white text-black" : "text-white/60"
+                activeCamera === cam ? "bg-foreground text-background" : "text-foreground/60"
               }`}
             >
               {cam}
             </button>
           ))}
         </div>
-        <span className="text-base font-bold tracking-wide text-white">Record</span>
+        <span className="text-base font-bold tracking-wide text-foreground">Record</span>
         <div className="w-16 text-right">
-          <span className="font-mono text-sm font-bold text-white">
+          <span className="font-mono text-sm font-bold text-foreground">
             {speedKmh != null ? Math.round(speedKmh) : "–"}
           </span>
-          <span className="text-[10px] text-white/50"> km/h</span>
+          <span className="text-[10px] text-foreground/50"> km/h</span>
         </div>
       </div>
 
@@ -510,36 +770,42 @@ export default function RecordView() {
           </div>
         )}
 
-        {/* Back camera — main or PiP */}
+        {/* Back camera — main in back mode, PiP in dual front mode, hidden in single front mode */}
         <video
           ref={backCamera.videoRef}
-          onClick={() => activeCamera === "front" && setActiveCamera("back")}
+          onClick={() => !isSingleCam && activeCamera === "front" && handleFlipCamera()}
           className={activeCamera === "back"
             ? "absolute inset-0 z-0 h-full w-full object-cover"
-            : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
+            : isSingleCam
+              ? "hidden"
+              : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
           playsInline
           muted
         />
 
-        {/* Front camera — main or PiP */}
+        {/* Front camera — main in front mode, PiP in dual back mode, hidden in single back mode */}
         <video
           ref={videoRef}
-          onClick={() => activeCamera === "back" && setActiveCamera("front")}
+          onClick={() => !isSingleCam && activeCamera === "back" && handleFlipCamera()}
           className={activeCamera === "front"
             ? "absolute inset-0 z-0 h-full w-full object-cover"
-            : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
+            : isSingleCam
+              ? "hidden"
+              : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
           style={{ transform: "scaleX(-1)" }}
           playsInline
           muted
         />
 
-        {/* Face detection canvas — always follows front camera */}
+        {/* Face detection canvas — follows front camera, hidden when front inactive in single mode */}
         <canvas
           ref={canvasRef}
-          onClick={() => activeCamera === "back" && setActiveCamera("front")}
+          onClick={() => !isSingleCam && activeCamera === "back" && handleFlipCamera()}
           className={activeCamera === "front"
             ? "absolute inset-0 z-1 h-full w-full"
-            : "absolute top-3 left-3 z-11 h-28 w-20 cursor-pointer rounded-xl"}
+            : isSingleCam
+              ? "hidden"
+              : "absolute top-3 left-3 z-11 h-28 w-20 cursor-pointer rounded-xl"}
           style={{ transform: "scaleX(-1)" }}
         />
 
@@ -547,21 +813,23 @@ export default function RecordView() {
         {loading && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/90">
             <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-            <p className="mt-4 text-sm font-medium text-white">Loading face detection…</p>
+            <p className="mt-4 text-sm font-medium text-white">
+              {isSingleCam && activeCamera === "back" ? "Starting camera…" : "Loading face detection…"}
+            </p>
             <p className="mt-1 text-xs text-white/40">First load may take a few seconds</p>
           </div>
         )}
 
         {/* REC indicator */}
         {isRecording && (
-          <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm">
+          <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm">
             <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
             <span className="font-mono text-xs font-bold text-white">REC {recMins}:{recSecs}</span>
           </div>
         )}
 
-        {/* Warning banner */}
-        {!loading && isWarning && display.warning && (
+        {/* Warning banner — only when front camera is active */}
+        {!loading && activeCamera === "front" && isWarning && display.warning && (
           <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
             <div
               className="animate-pulse rounded-2xl border-2 px-6 py-3 text-center text-xl font-black tracking-widest backdrop-blur-md"
@@ -572,18 +840,42 @@ export default function RecordView() {
           </div>
         )}
 
+        {/* Driver monitoring paused banner — single-cam mode, back camera active */}
+        {!loading && isSingleCam && activeCamera === "back" && (
+          <div className="absolute left-4 top-4 z-10">
+            <div className="rounded-full bg-black/60 px-3 py-1.5 text-[10px] font-medium text-white/60 backdrop-blur-sm">
+              Driver monitoring paused
+            </div>
+          </div>
+        )}
+
         {/* Metrics strip */}
         {!loading && (
           <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-col bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-8 pr-16">
-            <div className="flex items-center gap-4">
-              <span className="text-[11px] font-semibold text-white/70">Eyes <span className="text-white">{eyePct}%</span></span>
-              <span className="text-[11px] font-semibold text-white/70">State <span style={{ color: display.color }}>{display.label}</span></span>
-              <span className="text-[11px] font-semibold text-white/70">Head <span className="text-white">{headDir}</span></span>
-            </div>
+            {activeCamera === "front" && (
+              <>
+                <div className="mb-1 flex items-center gap-3 font-mono text-[10px]">
+                  <span className={calSamples >= CONFIG.EAR_CALIBRATION_MIN_SAMPLES ? "text-green-400" : "text-yellow-400"}>
+                    {calSamples >= CONFIG.EAR_CALIBRATION_MIN_SAMPLES ? "CAL READY" : `CAL ${calSamples}/${CONFIG.EAR_CALIBRATION_MIN_SAMPLES}`}
+                  </span>
+                  <span className="text-white/40">thr <span className="text-white/80">{earThreshold.toFixed(3)}</span></span>
+                  <span className="text-white/40">EAR <span className="text-white/80">{metrics.ear.toFixed(3)}</span></span>
+                  <span className="text-white/40">base <span className="text-white/80">{calSamples >= CONFIG.EAR_CALIBRATION_MIN_SAMPLES ? (earThreshold / CONFIG.EAR_CALIBRATION_RATIO).toFixed(3) : "—"}</span></span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-[11px] font-semibold text-white/70">Eyes <span className="text-white">{eyePct}%</span></span>
+                  <span className="text-[11px] font-semibold text-white/70">State <span style={{ color: display.color }}>{display.label}</span></span>
+                  <span className="text-[11px] font-semibold text-white/70">Head <span className="text-white">{headDir}</span></span>
+                </div>
+              </>
+            )}
             <div className="mt-0.5 flex items-center gap-4">
               <span className="text-[11px] font-semibold text-white/70">Speed <span className="text-white">{speedKmh != null ? `${Math.round(speedKmh)} km/h` : "–"}</span></span>
               {crash.currentG != null && (
                 <span className="text-[11px] font-semibold text-white/70">G <span className="text-white">{crash.currentG.toFixed(2)}g</span></span>
+              )}
+              {isSingleCam && (
+                <span className="text-[11px] font-semibold text-white/70">Mode <span className="text-white">Single</span></span>
               )}
             </div>
           </div>
@@ -597,13 +889,15 @@ export default function RecordView() {
             roadDeviceId={roadDeviceId}
             onDriverChange={setDriverDeviceId}
             onRoadChange={setRoadDeviceId}
+            cameraMode={cameraMode}
+            activeCamera={activeCamera}
           />
         )}
 
         {/* Switch camera */}
         <button
           type="button"
-          onClick={() => setActiveCamera((c) => (c === "front" ? "back" : "front"))}
+          onClick={handleFlipCamera}
           className="absolute bottom-3 right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-transform active:scale-95"
         >
           <RefreshCw size={18} />
@@ -661,7 +955,7 @@ export default function RecordView() {
           type="button"
           onClick={() => isRecording ? handleStopRecording() : handleStartRecording()}
           disabled={loading}
-          className={`flex h-20 w-20 items-center justify-center rounded-full border-4 border-white transition-transform active:scale-95 disabled:opacity-30 ${isRecording ? "animate-pulse" : ""}`}
+          className={`flex h-20 w-20 items-center justify-center rounded-full border-4 border-foreground transition-transform active:scale-95 disabled:opacity-30 ${isRecording ? "animate-pulse" : ""}`}
           aria-label={isRecording ? "Stop recording" : "Start recording"}
         >
           <span
@@ -671,10 +965,10 @@ export default function RecordView() {
 
         {/* Live log */}
         {liveLog.length > 0 && (
-          <div className="mx-3 w-full max-h-24 overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900/90 px-3 py-2">
-            <p className="mb-1 text-[9px] font-semibold uppercase tracking-widest text-zinc-600">Live Log</p>
+          <div ref={liveLogRef} className="mx-3 w-full max-h-24 overflow-y-auto rounded-xl border border-border bg-card px-3 py-2">
+            <p className="mb-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">Live Log</p>
             {liveLog.map((line, i) => (
-              <p key={i} className="font-mono text-[10px] leading-relaxed text-zinc-400">{line}</p>
+              <p key={i} className="font-mono text-[10px] leading-relaxed text-foreground/70">{line}</p>
             ))}
           </div>
         )}
@@ -688,10 +982,10 @@ export default function RecordView() {
       />
 
       {ending && (
-        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/80">
+        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-600 border-t-white" />
-            <p className="text-sm text-zinc-400">Generating drive summary...</p>
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-foreground" />
+            <p className="text-sm text-muted-foreground">Generating drive summary...</p>
           </div>
         </div>
       )}

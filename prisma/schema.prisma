@@ -19,10 +19,12 @@ model user {
   email         String    @unique
   emailVerified Boolean   @default(false)
   image         String?
+  isAnonymous   Boolean?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions      session[]
   accounts      account[]
+  driveSessions DriveSession[]
 }
 
 model session {
@@ -65,13 +67,18 @@ model verification {
 
 model DriveSession {
   id        String       @id @default(cuid())
+  userId    String?
+  user      user?        @relation(fields: [userId], references: [id], onDelete: Cascade)
   startedAt DateTime     @default(now())
   endedAt   DateTime?
   summary   String?
   score     Int?
   cameras   String[]
+  videoKey  String?
   events    DriveEvent[]
   createdAt DateTime     @default(now())
+
+  @@index([userId])
 }
 
 model DriveEvent {
