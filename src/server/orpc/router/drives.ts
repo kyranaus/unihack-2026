@@ -117,14 +117,14 @@ function computeScore(
     if (e.type === "driver_state") {
       const meta = e.metadata as Record<string, unknown>
       const state = meta?.state as string | undefined
-      if (state === "DROWSY") score -= 5
-      else if (state === "DISTRACTED") score -= 5
-      else if (state === "ASLEEP") score -= 15
+      if (state === "DROWSY") score -= 8
+      else if (state === "DISTRACTED") score -= 6
+      else if (state === "ASLEEP") score -= 25
     } else if (e.type === "road_analysis") {
-      if (e.severity === "warning") score -= 2
-      else if (e.severity === "critical") score -= 8
+      if (e.severity === "warning") score -= 3
+      else if (e.severity === "critical") score -= 12
     } else if (e.type === "crash") {
-      score -= 20
+      score -= 80
     }
   }
 
