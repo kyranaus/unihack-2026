@@ -5,6 +5,7 @@ import { anonymous } from 'better-auth/plugins'
 import { prisma } from '#/server/db'
 
 export const auth = betterAuth({
+  trustedOrigins: ["*"],
   baseURL: process.env.BETTER_AUTH_URL,
   database: prismaAdapter(prisma, { provider: 'postgresql' }),
   emailAndPassword: { enabled: true },
