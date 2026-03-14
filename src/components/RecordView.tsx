@@ -365,6 +365,7 @@ export default function RecordView() {
   const handleStopRecording = useCallback(async () => {
     wantRecordingRef.current = false;
     const duration = frontRecorder.duration || backRecorder.duration || 0;
+    const speedTrack = [...speedTrackRef.current]; // Capture before recorders stop (which clears the ref via useEffect)
 
     // Stop composite recorder
     drawLoopActiveRef.current = false;
@@ -429,7 +430,7 @@ export default function RecordView() {
 
     const blob = compositeBlob ?? backBlob ?? frontBlob;
     if (blob) {
-      setPendingRec({ blob, duration, mimeType: getSupportedMimeType() || "video/webm", frontBlob, backBlob, speedTrack: [...speedTrackRef.current] });
+      setPendingRec({ blob, duration, mimeType: getSupportedMimeType() || "video/webm", frontBlob, backBlob, speedTrack });
     }
 
     setLiveLog([]);
