@@ -7,7 +7,9 @@ import { useFaceDetection } from "#/hooks/use-face-detection";
 import { useMediaRecorder } from "#/hooks/use-media-recorder";
 import { useSpeed } from "#/hooks/use-speed";
 import { requestMotionPermission, useCrashDetection } from "#/hooks/use-crash-detection";
-import { downloadBlob } from "#/lib/media-utils";
+import type { PendingRecording } from "#/hooks/useRecording";
+import { getSupportedMimeType } from "#/lib/media-utils";
+import { SaveRecordingDialog } from "#/components/SaveRecordingDialog";
 import { CameraPicker } from "./CameraPicker";
 import { DriverCamera } from "./DriverCamera";
 import { MetricsBar } from "./MetricsBar";
@@ -79,6 +81,7 @@ export default function DriverMonitor() {
 	const [isIOS, setIsIOS] = useState(false);
 	const [motionPermissionHintShown, setMotionPermissionHintShown] =
 		useState(false);
+	const [pendingRec, setPendingRec] = useState<PendingRecording | null>(null);
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
@@ -160,13 +163,20 @@ export default function DriverMonitor() {
 	}, [frontRecorder, backRecorder]);
 
 	const handleStopRecording = useCallback(async () => {
+		const duration = frontRecorder.duration || backRecorder.duration || 0;
 		const [frontBlob, backBlob] = await Promise.all([
 			frontRecorder.stopRecording(),
 			backRecorder.stopRecording(),
 		]);
-		const ts = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
-		if (backBlob) downloadBlob(backBlob, `dashcam-road-${ts}.webm`);
-		if (frontBlob) downloadBlob(frontBlob, `dashcam-driver-${ts}.webm`);
+		// Use road (back) blob for save-to-replays; show Save dialog
+		const blob = backBlob ?? frontBlob;
+		if (blob) {
+			setPendingRec({
+				blob,
+				duration,
+				mimeType: getSupportedMimeType() || "video/webm",
+			});
+		}
 	}, [frontRecorder, backRecorder]);
 
 	const toggleViewMode = useCallback(() => {
@@ -333,6 +343,13 @@ export default function DriverMonitor() {
 				<MetricsBar
 					metrics={detection.metrics}
 					driverState={detection.driverState}
+				/>
+			)}
+
+			{pendingRec && (
+				<SaveRecordingDialog
+					pending={pendingRec}
+					onDone={() => setPendingRec(null)}
 				/>
 			)}
 		</div>
