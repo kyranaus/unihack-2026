@@ -43,7 +43,7 @@ export const CONFIG = {
   /** Pitch ratio below this = "looking up" */
   PITCH_UP_THRESHOLD: 0.45,
   /** Eyes closed this long → DROWSY */
-  DROWSY_TIME_MS: 1500,
+  DROWSY_TIME_MS: 1250,
   /** Head turned this long → DISTRACTED */
   DISTRACTED_TIME_MS: 2000,
   /** Consecutive frames without a face before NO_FACE (~0.5s at 30fps) */

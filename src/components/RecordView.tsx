@@ -20,10 +20,13 @@ const MAX_RECORD_SECS = 5 * 60;
 
 const EAR_OPEN_REF = 0.32;
 
+const ALARM_SRC = "/denielcz-speed-limit-violation-alert-463066.mp3";
+
 export default function RecordView() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const alarmRef = useRef<HTMLAudioElement | null>(null);
 
   const { start: startRec, stop: stopRec, pending: pendingRec, clearPending } = useRecording(streamRef);
 
@@ -65,6 +68,7 @@ export default function RecordView() {
       smoothedPitch: 0.7,
       eyesClosedSince: null as number | null,
       headTurnedSince: null as number | null,
+      alarmPlaying: false,
       noFaceFrames: 0,
       currentState: "NO_FACE" as DriverState,
       frameCount: 0,
@@ -166,6 +170,19 @@ export default function RecordView() {
         } else {
           s.currentState = "ALERT";
         }
+
+        if (s.currentState === "DROWSY" && !s.alarmPlaying) {
+          s.alarmPlaying = true;
+          if (!alarmRef.current) {
+            alarmRef.current = new Audio(ALARM_SRC);
+            alarmRef.current.loop = true;
+          }
+          alarmRef.current.currentTime = 0;
+          alarmRef.current.play();
+        } else if (s.currentState !== "DROWSY" && s.alarmPlaying) {
+          s.alarmPlaying = false;
+          alarmRef.current?.pause();
+        }
       }
 
       const cw = canvas.clientWidth;
@@ -203,6 +220,8 @@ export default function RecordView() {
       if (stream) stream.getTracks().forEach((t) => t.stop());
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (landmarker) (landmarker as any).close();
+      alarmRef.current?.pause();
+      alarmRef.current = null;
     };
   }, []);
 
