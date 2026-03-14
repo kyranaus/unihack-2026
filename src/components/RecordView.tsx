@@ -129,6 +129,13 @@ export default function RecordView() {
   const lastTTSWarningRef = useRef(0);
   const lastSessionIdRef = useRef<string | null>(null);
   const handleStopRecordingRef = useRef<() => void>(() => {});
+  const liveLogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (liveLogRef.current) {
+      liveLogRef.current.scrollTop = liveLogRef.current.scrollHeight;
+    }
+  }, [liveLog]);
 
   const addLog = useCallback((msg: string) => {
     const ts = new Date().toLocaleTimeString("en-AU", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -958,7 +965,7 @@ export default function RecordView() {
 
         {/* Live log */}
         {liveLog.length > 0 && (
-          <div className="mx-3 w-full max-h-24 overflow-y-auto rounded-xl border border-border bg-card px-3 py-2">
+          <div ref={liveLogRef} className="mx-3 w-full max-h-24 overflow-y-auto rounded-xl border border-border bg-card px-3 py-2">
             <p className="mb-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">Live Log</p>
             {liveLog.map((line, i) => (
               <p key={i} className="font-mono text-[10px] leading-relaxed text-foreground/70">{line}</p>

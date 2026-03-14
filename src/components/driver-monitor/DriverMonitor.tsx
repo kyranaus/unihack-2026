@@ -132,6 +132,13 @@ export default function DriverMonitor() {
 	useDriverEventLogger(detection.driverState, detection.metrics, "front");
 
 	const lastAISummaryRef = useRef("");
+	const liveLogRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		if (liveLogRef.current) {
+			liveLogRef.current.scrollTop = liveLogRef.current.scrollHeight;
+		}
+	}, [liveLog]);
 
 	const handleFrameBatch = useCallback(async (frames: string[]) => {
 		const sessionId = sessionIdRef.current;
@@ -425,7 +432,7 @@ export default function DriverMonitor() {
 				)}
 
 				{liveLog.length > 0 && (
-					<div className="absolute inset-x-3 bottom-20 z-20 max-h-28 overflow-y-auto rounded-xl bg-black/80 border border-zinc-700 px-3 py-2 backdrop-blur-sm">
+					<div ref={liveLogRef} className="absolute inset-x-3 bottom-20 z-20 max-h-28 overflow-y-auto rounded-xl bg-black/80 border border-zinc-700 px-3 py-2 backdrop-blur-sm">
 						<p className="text-[9px] font-semibold uppercase tracking-widest text-zinc-500 mb-1">Live Log</p>
 						{liveLog.map((line, i) => (
 							<p key={i} className="font-mono text-[10px] leading-relaxed text-zinc-300">{line}</p>
