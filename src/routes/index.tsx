@@ -1,14 +1,27 @@
 // src/routes/index.tsx
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { motion } from "framer-motion"
-import { DriverScoreCircle } from "#/components/home/DriverScoreCircle"
 import { BrandLogo } from "#/components/home/BrandLogo"
 import { Smartphone, Video } from "lucide-react"
 import { authClient } from "#/lib/auth-client"
+import { DotLottiePlayer } from "@dotlottie/react-player"
+import { useState, useEffect } from "react"
+
+function useScreenSize() {
+  const [size, setSize] = useState({
+    w: typeof window !== "undefined" ? window.innerWidth : 400,
+    h: typeof window !== "undefined" ? window.innerHeight : 600,
+  })
+  useEffect(() => {
+    const onResize = () => setSize({ w: window.innerWidth, h: window.innerHeight })
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
+  }, [])
+  return size
+}
 
 export const Route = createFileRoute("/")({ component: App })
 
-const DRIVER_SCORE = 85
 const APP_URL = "https://kyranaus-unihack-2026.kyranmenezesaus.workers.dev/"
 const QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=000000&bgcolor=ffffff&data=${encodeURIComponent(APP_URL)}`
 
@@ -50,6 +63,7 @@ function BrushName({ name }: { name: string }) {
 function App() {
   const navigate = useNavigate()
   const { data: session, isPending } = authClient.useSession()
+  const { h: screenH } = useScreenSize()
 
   if (isPending) return null
 
@@ -59,23 +73,74 @@ function App() {
   }
 
   const username = session.user.name || "Driver"
+  const offBottom = screenH + 80
 
   return (
     <main className="min-h-screen bg-background text-foreground">
 
       {/* ── Desktop splash (hidden on mobile) ── */}
-      <div className="hidden md:flex min-h-screen flex-col items-center justify-center gap-10 px-8 pt-14">
+      <div className="hidden md:flex relative min-h-screen flex-col items-center justify-center gap-10 px-8 pt-14 overflow-hidden">
+
+        {/* Desktop bees flying bottom-up at left edge */}
+        {[
+          { delay: 0, duration: 5, pause: 1, size: "w-20", offset: "0%" },
+          { delay: 0.8, duration: 6, pause: 2, size: "w-24", offset: "5%" },
+          { delay: 1.6, duration: 4.5, pause: 1.5, size: "w-16", offset: "12%" },
+          { delay: 2.4, duration: 7, pause: 3, size: "w-28", offset: "2%" },
+          { delay: 3.2, duration: 5.5, pause: 2, size: "w-20", offset: "8%" },
+          { delay: 4.0, duration: 6.5, pause: 2.5, size: "w-24", offset: "15%" },
+          { delay: 4.8, duration: 5, pause: 1, size: "w-18", offset: "3%" },
+          { delay: 5.6, duration: 6, pause: 2, size: "w-22", offset: "10%" },
+        ].map((bee, i) => (
+          <motion.div
+            key={`dleft-${i}`}
+            className={`pointer-events-none absolute z-50 ${bee.size}`}
+            style={{ bottom: 0, left: bee.offset }}
+            initial={{ y: 0 }}
+            animate={{ y: -offBottom, x: [0, 6, -4, 8, 0] }}
+            transition={{
+              y: { delay: bee.delay, duration: bee.duration, ease: "linear", repeat: Infinity, repeatDelay: bee.pause },
+              x: { delay: bee.delay, duration: bee.duration / 2, ease: "easeInOut", repeat: Infinity },
+            }}
+          >
+            <DotLottiePlayer src="/2bees.lottie" autoplay loop className="w-full h-full" />
+          </motion.div>
+        ))}
+
+        {/* Desktop bees flying bottom-up at right edge */}
+        {[
+          { delay: 0.4, duration: 5.5, pause: 1.5, size: "w-22", offset: "0%" },
+          { delay: 1.2, duration: 6, pause: 2, size: "w-18", offset: "6%" },
+          { delay: 2.0, duration: 4, pause: 1, size: "w-26", offset: "10%" },
+          { delay: 2.8, duration: 7, pause: 3, size: "w-20", offset: "3%" },
+          { delay: 3.6, duration: 5, pause: 2, size: "w-24", offset: "14%" },
+          { delay: 4.4, duration: 6.5, pause: 2.5, size: "w-16", offset: "7%" },
+          { delay: 5.2, duration: 5.5, pause: 1.5, size: "w-28", offset: "2%" },
+          { delay: 6.0, duration: 6, pause: 2, size: "w-20", offset: "11%" },
+        ].map((bee, i) => (
+          <motion.div
+            key={`dright-${i}`}
+            className={`pointer-events-none absolute z-50 ${bee.size}`}
+            style={{ bottom: 0, right: bee.offset }}
+            initial={{ y: 0 }}
+            animate={{ y: -offBottom, x: [0, -6, 4, -8, 0] }}
+            transition={{
+              y: { delay: bee.delay, duration: bee.duration, ease: "linear", repeat: Infinity, repeatDelay: bee.pause },
+              x: { delay: bee.delay, duration: bee.duration / 2, ease: "easeInOut", repeat: Infinity },
+            }}
+          >
+            <DotLottiePlayer src="/2bees.lottie" autoplay loop className="w-full h-full" />
+          </motion.div>
+        ))}
+
         <BrandLogo />
         <div className="flex flex-col items-center gap-4">
-          {/* QR code */}
           <img
             src={QR_SRC}
             alt="QR code to open BeeSafe on mobile"
             width={180}
             height={180}
           />
-
-          {/* Disclaimer */}
           <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2">
             <Smartphone size={14} className="text-primary shrink-0" />
             <p className="text-xs text-muted-foreground">
@@ -86,16 +151,65 @@ function App() {
       </div>
 
       {/* ── Mobile app (hidden on desktop) ── */}
-      <div className="md:hidden relative mx-auto min-h-screen max-w-md px-4 pb-28">
+      <div className="md:hidden relative mx-auto min-h-screen max-w-md px-4 pb-28 overflow-hidden">
 
-        {/* Title block — sits at 20% from the top, adapts to any screen height */}
+        {/* Bees flying bottom-up at left edge */}
+        {[
+          { delay: 0, duration: 4, pause: 1, size: "w-16", offset: "0%" },
+          { delay: 0.6, duration: 5, pause: 1.5, size: "w-20", offset: "4%" },
+          { delay: 1.2, duration: 3.5, pause: 1, size: "w-14", offset: "10%" },
+          { delay: 1.8, duration: 5.5, pause: 2, size: "w-22", offset: "2%" },
+          { delay: 2.4, duration: 4.5, pause: 1.5, size: "w-18", offset: "8%" },
+          { delay: 3.0, duration: 5, pause: 2, size: "w-20", offset: "6%" },
+          { delay: 3.6, duration: 4, pause: 1, size: "w-16", offset: "12%" },
+        ].map((bee, i) => (
+          <motion.div
+            key={`mleft-${i}`}
+            className={`pointer-events-none absolute z-50 ${bee.size}`}
+            style={{ bottom: 0, left: bee.offset }}
+            initial={{ y: 0 }}
+            animate={{ y: -offBottom, x: [0, 5, -3, 6, 0] }}
+            transition={{
+              y: { delay: bee.delay, duration: bee.duration, ease: "linear", repeat: Infinity, repeatDelay: bee.pause },
+              x: { delay: bee.delay, duration: bee.duration / 2, ease: "easeInOut", repeat: Infinity },
+            }}
+          >
+            <DotLottiePlayer src="/2bees.lottie" autoplay loop className="w-full h-full" />
+          </motion.div>
+        ))}
+
+        {/* Bees flying bottom-up at right edge */}
+        {[
+          { delay: 0.3, duration: 4.5, pause: 1.2, size: "w-18", offset: "0%" },
+          { delay: 0.9, duration: 5, pause: 1.5, size: "w-16", offset: "5%" },
+          { delay: 1.5, duration: 3.8, pause: 1, size: "w-22", offset: "9%" },
+          { delay: 2.1, duration: 5.5, pause: 2, size: "w-14", offset: "2%" },
+          { delay: 2.7, duration: 4, pause: 1.5, size: "w-20", offset: "7%" },
+          { delay: 3.3, duration: 5.5, pause: 2, size: "w-18", offset: "11%" },
+          { delay: 3.9, duration: 4.5, pause: 1, size: "w-16", offset: "4%" },
+        ].map((bee, i) => (
+          <motion.div
+            key={`mright-${i}`}
+            className={`pointer-events-none absolute z-50 ${bee.size}`}
+            style={{ bottom: 0, right: bee.offset }}
+            initial={{ y: 0 }}
+            animate={{ y: -offBottom, x: [0, -5, 3, -6, 0] }}
+            transition={{
+              y: { delay: bee.delay, duration: bee.duration, ease: "linear", repeat: Infinity, repeatDelay: bee.pause },
+              x: { delay: bee.delay, duration: bee.duration / 2, ease: "easeInOut", repeat: Infinity },
+            }}
+          >
+            <DotLottiePlayer src="/2bees.lottie" autoplay loop className="w-full h-full" />
+          </motion.div>
+        ))}
+
+        {/* Title block */}
         <div
           className="flex flex-col items-center gap-4"
           style={{ paddingTop: "12vh" }}
         >
           <BrandLogo />
 
-          {/* Welcome greeting below the logo */}
           <div className="flex flex-col items-center gap-1 mt-10">
             <motion.p
               initial={{ opacity: 0 }}
@@ -110,19 +224,6 @@ function App() {
               <BrushName name={username} />
             </div>
           </div>
-
-          {/* Driver score — centred below the name */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 3.2, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-4 flex flex-col items-center gap-1"
-          >
-            <DriverScoreCircle score={DRIVER_SCORE} size={160} />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mt-2">
-              Driver score
-            </span>
-          </motion.div>
         </div>
 
         {/* Start recording button — floats above the nav bar */}
