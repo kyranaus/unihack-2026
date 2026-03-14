@@ -20,7 +20,6 @@ import { Route as AuthedRecordRouteImport } from './routes/_authed/record'
 import { Route as AuthedProfileRouteImport } from './routes/_authed/profile'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
 import { Route as AuthedLeaderboardRouteImport } from './routes/_authed/leaderboard'
-import { Route as AuthedEmergencyRouteImport } from './routes/_authed/emergency'
 import { Route as AuthedDriverMonitorRouteImport } from './routes/_authed/driver-monitor'
 import { Route as ApiRpcSplatRouteImport } from './routes/api.rpc.$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -79,11 +78,6 @@ const AuthedLeaderboardRoute = AuthedLeaderboardRouteImport.update({
   path: '/leaderboard',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedEmergencyRoute = AuthedEmergencyRouteImport.update({
-  id: '/emergency',
-  path: '/emergency',
-  getParentRoute: () => AuthedRoute,
-} as any)
 const AuthedDriverMonitorRoute = AuthedDriverMonitorRouteImport.update({
   id: '/driver-monitor',
   path: '/driver-monitor',
@@ -105,7 +99,6 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/driver-monitor': typeof AuthedDriverMonitorRoute
-  '/emergency': typeof AuthedEmergencyRoute
   '/leaderboard': typeof AuthedLeaderboardRoute
   '/onboarding': typeof AuthedOnboardingRoute
   '/profile': typeof AuthedProfileRoute
@@ -120,7 +113,6 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/driver-monitor': typeof AuthedDriverMonitorRoute
-  '/emergency': typeof AuthedEmergencyRoute
   '/leaderboard': typeof AuthedLeaderboardRoute
   '/onboarding': typeof AuthedOnboardingRoute
   '/profile': typeof AuthedProfileRoute
@@ -138,7 +130,6 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/_authed/driver-monitor': typeof AuthedDriverMonitorRoute
-  '/_authed/emergency': typeof AuthedEmergencyRoute
   '/_authed/leaderboard': typeof AuthedLeaderboardRoute
   '/_authed/onboarding': typeof AuthedOnboardingRoute
   '/_authed/profile': typeof AuthedProfileRoute
@@ -157,7 +148,6 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/driver-monitor'
-    | '/emergency'
     | '/leaderboard'
     | '/onboarding'
     | '/profile'
@@ -172,7 +162,6 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/driver-monitor'
-    | '/emergency'
     | '/leaderboard'
     | '/onboarding'
     | '/profile'
@@ -189,7 +178,6 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/_authed/driver-monitor'
-    | '/_authed/emergency'
     | '/_authed/leaderboard'
     | '/_authed/onboarding'
     | '/_authed/profile'
@@ -291,13 +279,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedLeaderboardRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/emergency': {
-      id: '/_authed/emergency'
-      path: '/emergency'
-      fullPath: '/emergency'
-      preLoaderRoute: typeof AuthedEmergencyRouteImport
-      parentRoute: typeof AuthedRoute
-    }
     '/_authed/driver-monitor': {
       id: '/_authed/driver-monitor'
       path: '/driver-monitor'
@@ -324,7 +305,6 @@ declare module '@tanstack/react-router' {
 
 interface AuthedRouteChildren {
   AuthedDriverMonitorRoute: typeof AuthedDriverMonitorRoute
-  AuthedEmergencyRoute: typeof AuthedEmergencyRoute
   AuthedLeaderboardRoute: typeof AuthedLeaderboardRoute
   AuthedOnboardingRoute: typeof AuthedOnboardingRoute
   AuthedProfileRoute: typeof AuthedProfileRoute
@@ -335,7 +315,6 @@ interface AuthedRouteChildren {
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedDriverMonitorRoute: AuthedDriverMonitorRoute,
-  AuthedEmergencyRoute: AuthedEmergencyRoute,
   AuthedLeaderboardRoute: AuthedLeaderboardRoute,
   AuthedOnboardingRoute: AuthedOnboardingRoute,
   AuthedProfileRoute: AuthedProfileRoute,
