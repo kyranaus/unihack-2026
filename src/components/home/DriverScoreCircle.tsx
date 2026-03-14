@@ -1,27 +1,29 @@
 // src/components/home/DriverScoreCircle.tsx
 type DriverScoreCircleProps = {
   score: number
+  size?: number
 }
 
 function scoreGradientColors(score: number): [string, string] {
-  if (score >= 70) return ["#4ade80", "#16a34a"] // green
-  if (score >= 40) return ["#facc15", "#eab308"] // yellow
-  return ["#f87171", "#dc2626"]                  // red
+  if (score >= 70) return ["#4ade80", "#16a34a"]
+  if (score >= 40) return ["#facc15", "#eab308"]
+  return ["#f87171", "#dc2626"]
 }
 
-export function DriverScoreCircle({ score }: DriverScoreCircleProps) {
+export function DriverScoreCircle({ score, size = 76 }: DriverScoreCircleProps) {
   const clamped = Math.min(100, Math.max(0, score))
-  const size = 76
-  const strokeWidth = 7
+  const strokeWidth = Math.max(6, size * 0.07)
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
   const progress = (clamped / 100) * circumference
   const [colorStart, colorEnd] = scoreGradientColors(clamped)
 
+  const fontSize = Math.round(size * 0.22)
+  const subSize = Math.round(size * 0.1)
+
   return (
-    <div className="relative flex h-[76px] w-[76px] items-center justify-center">
+    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
-        {/* Track */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -30,7 +32,6 @@ export function DriverScoreCircle({ score }: DriverScoreCircleProps) {
           strokeWidth={strokeWidth}
           fill="none"
         />
-        {/* Progress */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -51,8 +52,8 @@ export function DriverScoreCircle({ score }: DriverScoreCircleProps) {
       </svg>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center leading-none">
-        <span className="text-lg font-bold tabular-nums text-foreground">{clamped}</span>
-        <span className="text-[9px] text-muted-foreground">/100</span>
+        <span style={{ fontSize }} className="font-bold tabular-nums text-foreground">{clamped}</span>
+        <span style={{ fontSize: subSize }} className="text-muted-foreground">/100</span>
       </div>
     </div>
   )

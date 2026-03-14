@@ -1,16 +1,7 @@
+// src/routes/driver-monitor.tsx
 import { createFileRoute } from "@tanstack/react-router";
-import DriverMonitor from "#/components/driver-monitor/DriverMonitor";
+import RecordView from "#/components/RecordView";
 
 export const Route = createFileRoute("/driver-monitor")({
-	component: DriverMonitorPage,
+  component: () => <RecordView />,
 });
-
-function DriverMonitorPage() {
-	return (
-		// Full-screen page — no page-wrap, no header padding.
-		// pb-24 clears the fixed bottom Navbar.
-		<main className="relative h-dvh w-full pb-[88px]">
-			<DriverMonitor />
-		</main>
-	);
-}
