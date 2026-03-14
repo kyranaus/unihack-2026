@@ -1,4 +1,6 @@
-import { X, Camera, Eye, AlertTriangle, Car } from "lucide-react";
+// src/components/DriverFeedback.tsx
+import { useState } from "react";
+import { X, Camera, Eye, AlertTriangle, Car, ChevronDown, ChevronUp } from "lucide-react";
 
 export type SessionEvent = {
   id: string;
@@ -51,6 +53,18 @@ function grade(score: number): { label: string } {
   return { label: "Needs Work" };
 }
 
+function parseSummaryPoints(summary: string): { text: string; isGood: boolean }[] {
+  return summary
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith("+") || l.startsWith("-"))
+    .slice(0, 6)
+    .map((l) => ({
+      text: l.slice(1).trim(),
+      isGood: l.startsWith("+"),
+    }));
+}
+
 export function DriverFeedback({ sessionData, onClose, isOpen }: Props) {
   if (!isOpen) return null;
 
@@ -88,6 +102,8 @@ export function DriverFeedback({ sessionData, onClose, isOpen }: Props) {
   const criticals = sessionData.events.filter((e) => e.severity === "critical");
   const frontEvents = sessionData.events.filter((e) => e.camera === "front");
   const backEvents = sessionData.events.filter((e) => e.camera === "back");
+
+  const summaryPoints = sessionData.summary ? parseSummaryPoints(sessionData.summary) : [];
 
   return (
     <div
@@ -139,32 +155,29 @@ export function DriverFeedback({ sessionData, onClose, isOpen }: Props) {
             </div>
           </div>
 
-          {/* AI Summary */}
-          {sessionData.summary && (
+          {/* AI Summary — 2-4 bullet points */}
+          {summaryPoints.length > 0 && (
             <div className="mt-5">
               <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">AI Summary</p>
-              <p className="text-sm leading-relaxed text-zinc-300">{sessionData.summary}</p>
+              <ul className="space-y-1.5">
+                {summaryPoints.map(({ text, isGood }, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm leading-snug">
+                    <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${isGood ? "bg-green-400" : "bg-red-400"}`} />
+                    <span className={isGood ? "text-green-300" : "text-red-300"}>{text}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
-          {/* Front camera events */}
+          {/* Front camera logs */}
           {frontEvents.length > 0 && (
-            <div className="mt-5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-                Front Camera ({frontEvents.length})
-              </p>
-              <EventList events={frontEvents} />
-            </div>
+            <CollapsibleLogs title="Front Camera" events={frontEvents} />
           )}
 
-          {/* Back camera events */}
+          {/* Back camera logs */}
           {backEvents.length > 0 && (
-            <div className="mt-5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-                Back Camera ({backEvents.length})
-              </p>
-              <EventList events={backEvents} />
-            </div>
+            <CollapsibleLogs title="Back Camera" events={backEvents} />
           )}
         </div>
 
@@ -181,21 +194,59 @@ export function DriverFeedback({ sessionData, onClose, isOpen }: Props) {
   );
 }
 
-function EventList({ events }: { events: SessionEvent[] }) {
+function CollapsibleLogs({ title, events }: { title: string; events: SessionEvent[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const major = events.filter((e) => e.severity === "critical" || e.severity === "warning");
+  const shown = expanded ? events : major.slice(0, 3);
+
   return (
-    <div className="space-y-1.5">
-      {events.map((e) => {
-        const Icon = TYPE_ICON[e.type] ?? AlertTriangle;
-        return (
-          <div key={e.id} className="flex items-start gap-2 rounded-xl bg-zinc-800/60 px-3 py-2">
-            <Icon size={13} className={`mt-0.5 shrink-0 ${SEVERITY_DOT[e.severity] ?? "text-zinc-400"}`} />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs leading-relaxed text-zinc-300">{e.summary}</p>
-              <p className="mt-0.5 text-[10px] text-zinc-600">{fmt(e.elapsedSec)} - {e.type.replace("_", " ")}</p>
-            </div>
-          </div>
-        );
-      })}
+    <div className="mt-5">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="mb-2 flex w-full items-center justify-between"
+      >
+        <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
+          {title} ({events.length})
+        </p>
+        {expanded ? <ChevronUp size={14} className="text-zinc-500" /> : <ChevronDown size={14} className="text-zinc-500" />}
+      </button>
+      {shown.length === 0 ? (
+        <p className="text-xs text-zinc-600">No major events.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {shown.map((e) => {
+            const Icon = TYPE_ICON[e.type] ?? AlertTriangle;
+            return (
+              <div key={e.id} className="flex items-start gap-2 rounded-xl bg-zinc-800/60 px-3 py-2">
+                <Icon size={13} className={`mt-0.5 shrink-0 ${SEVERITY_DOT[e.severity] ?? "text-zinc-400"}`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs leading-relaxed text-zinc-300">{e.summary}</p>
+                  <p className="mt-0.5 text-[10px] text-zinc-600">{fmt(e.elapsedSec)} · {e.type.replace("_", " ")}</p>
+                </div>
+              </div>
+            );
+          })}
+          {!expanded && major.length > 3 && (
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="w-full text-center text-[10px] text-zinc-500 py-1 hover:text-zinc-300"
+            >
+              +{major.length - 3} more major events — tap to expand
+            </button>
+          )}
+          {!expanded && major.length === 0 && (
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="w-full text-center text-[10px] text-zinc-500 py-1 hover:text-zinc-300"
+            >
+              No major events — tap to see all {events.length}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

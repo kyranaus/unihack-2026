@@ -1,6 +1,5 @@
 import { Link } from '@tanstack/react-router'
 import BetterAuthHeader from '../integrations/better-auth/header-user.tsx'
-import TanChatAIAssistant from './demo-AIAssistant.tsx'
 import ThemeToggle from './ThemeToggle'
 
 export default function Header() {
@@ -47,8 +46,6 @@ export default function Header() {
             </svg>
           </a>
           <BetterAuthHeader />
-          <TanChatAIAssistant />
-
           <ThemeToggle />
         </div>
 

@@ -37,18 +37,15 @@ export function useCameraDevices() {
 			return;
 		}
 
-		const mediaDevices = navigator.mediaDevices as MediaDevices & {
-			addEventListener?: typeof navigator.addEventListener;
-			removeEventListener?: typeof navigator.removeEventListener;
-		};
+		const mediaDevices = navigator.mediaDevices;
 
 		enumerate();
 
-		mediaDevices.addEventListener?.("devicechange", enumerate);
+		mediaDevices.addEventListener("devicechange", enumerate);
 
 		return () => {
 			disposed = true;
-			mediaDevices.removeEventListener?.("devicechange", enumerate);
+			mediaDevices.removeEventListener("devicechange", enumerate);
 		};
 	}, []);
 

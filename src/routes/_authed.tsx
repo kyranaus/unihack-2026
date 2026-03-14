@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_authed")({
     const session = await getSession()
 
     if (!session) {
-      throw redirect({ to: "/login" })
+      throw redirect({ to: "/login", search: { redirect: undefined } })
     }
 
     return { user: session.user }

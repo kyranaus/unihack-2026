@@ -21,7 +21,7 @@ export const auth = betterAuth({
       onLinkAccount: async ({ anonymousUser, newUser }) => {
         await prisma.driveSession.updateMany({
           where: { userId: anonymousUser.user.id },
-          data: { userId: newUser.id },
+          data: { userId: newUser.user.id },
         })
       },
     }),

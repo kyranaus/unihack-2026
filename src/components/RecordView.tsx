@@ -17,6 +17,7 @@ import {
   getHeadDirection,
   updateEarCalibration,
 } from "#/lib/driver-monitor-utils";
+import type { FaceLandmarker, FaceLandmarkerResult, NormalizedLandmark } from "@mediapipe/tasks-vision";
 import { useCamera } from "#/hooks/use-camera";
 import { useCameraMode } from "#/hooks/use-camera-mode";
 import { useMediaRecorder } from "#/hooks/use-media-recorder";
@@ -83,9 +84,12 @@ export default function RecordView() {
   const backCamEnabled = isSingleCam ? activeCamera === "back" : frontReady;
   const backCamera = useCamera(roadSource, backCamEnabled);
 
+  // Streaming S3 upload (chunks uploaded during recording)
+  const streamUpload = useStreamingUpload();
+
   // Recording — in single mode only one recorder is active at a time
   const frontRecorder = useMediaRecorder(frontStream);
-  const backRecorder = useMediaRecorder(backCamera.stream);
+  const backRecorder = useMediaRecorder(backCamera.stream, { onChunk: streamUpload.pushChunk });
   const isRecording = frontRecorder.isRecording || backRecorder.isRecording;
   const wantRecordingRef = useRef(false);
 
@@ -94,11 +98,6 @@ export default function RecordView() {
   const compositeChunksRef = useRef<Blob[]>([]);
   const drawLoopActiveRef = useRef(false);
   const compositeMainCamRef = useRef<"front" | "back">("back");
-  // On desktop (single webcam), fall back to sharing the front stream for recording
-  const backStream = backCamera.stream ?? frontStream;
-
-  // Streaming S3 upload (chunks uploaded during recording)
-  const streamUpload = useStreamingUpload();
 
 
   // State
@@ -132,6 +131,13 @@ export default function RecordView() {
   const lastTTSWarningRef = useRef(0);
   const lastSessionIdRef = useRef<string | null>(null);
   const handleStopRecordingRef = useRef<() => void>(() => {});
+  const liveLogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (liveLogRef.current) {
+      liveLogRef.current.scrollTop = liveLogRef.current.scrollHeight;
+    }
+  }, [liveLog]);
 
   const addLog = useCallback((msg: string) => {
     const ts = new Date().toLocaleTimeString("en-AU", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -337,7 +343,10 @@ export default function RecordView() {
       const compositeStream = canvas.captureStream(30);
       const compositeRecorder = new MediaRecorder(compositeStream, mimeType ? { mimeType } : undefined);
       compositeRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) compositeChunksRef.current.push(e.data);
+        if (e.data.size > 0) {
+          compositeChunksRef.current.push(e.data);
+          streamUpload.pushChunk(e.data);
+        }
       };
       compositeRecorder.start(1000);
       compositeRecorderRef.current = compositeRecorder;
@@ -451,8 +460,7 @@ export default function RecordView() {
 
     let animFrameId: number;
     let stream: MediaStream | null = null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let landmarker: any = null;
+    let landmarker: FaceLandmarker | null = null;
     let disposed = false;
 
     const s = {
@@ -553,15 +561,15 @@ export default function RecordView() {
       const ctx = canvas.getContext("2d");
       if (!ctx) { animFrameId = requestAnimationFrame(detect); return; }
 
-      let results: any;
+      let results: FaceLandmarkerResult;
       try {
-        results = landmarker.detectForVideo(video, now);
+        results = landmarker!.detectForVideo(video, now);
       } catch {
         animFrameId = requestAnimationFrame(detect);
         return;
       }
       const hasFace = results.faceLandmarks && results.faceLandmarks.length > 0;
-      const landmarks = hasFace ? results.faceLandmarks[0] : null;
+      const landmarks: NormalizedLandmark[] | null = hasFace ? results.faceLandmarks[0] : null;
 
       if (!hasFace) {
         s.noFaceFrames++;
@@ -653,8 +661,7 @@ export default function RecordView() {
       setFrontReady(false);
       cancelAnimationFrame(animFrameId);
       if (stream) stream.getTracks().forEach((t) => t.stop());
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (landmarker) (landmarker as any).close();
+      if (landmarker) landmarker.close();
       alarmRef.current?.pause();
       alarmRef.current = null;
     };
@@ -948,7 +955,7 @@ export default function RecordView() {
 
         {/* Live log */}
         {liveLog.length > 0 && (
-          <div className="mx-3 w-full max-h-24 overflow-y-auto rounded-xl border border-border bg-card px-3 py-2">
+          <div ref={liveLogRef} className="mx-3 w-full max-h-24 overflow-y-auto rounded-xl border border-border bg-card px-3 py-2">
             <p className="mb-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">Live Log</p>
             {liveLog.map((line, i) => (
               <p key={i} className="font-mono text-[10px] leading-relaxed text-foreground/70">{line}</p>
