@@ -71,27 +71,21 @@ const PARTICLE_BEES_RIGHT = [
 function BeeAnimations() {
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-      {/* Big bee — left to right with smooth sine-wave up/down */}
-      {/* <motion.div
+      {/* Big bee — flies in from left, stops just past the title, then bobs */}
+      <motion.div
         className="absolute"
-        style={{ top: "35%", left: 0 }}
-        animate={{
-          x: ["-160px", "calc(100vw + 160px)"],
-          y: [0, -70, 0, 70, 0, -70, 0, 70, 0],
-        }}
-        transition={{
-          x: { duration: 14, repeat: Infinity, repeatDelay: 3, ease: "linear" },
-          y: {
-            duration: 14,
-            repeat: Infinity,
-            repeatDelay: 3,
-            times: [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1],
-            ease: ["easeInOut", "easeInOut", "easeInOut", "easeInOut", "easeInOut", "easeInOut", "easeInOut", "easeInOut"],
-          },
-        }}
+        style={{ top: "38%" }}
+        initial={{ x: "-160px" }}
+        animate={{ x: "calc(35vw)" }}
+        transition={{ duration: 4, ease: "easeOut" }}
       >
-        <DotLottieReact src="/flyingBee.lottie" autoplay loop style={{ width: 130, height: 130 }} />
-      </motion.div> */}
+        <motion.div
+          animate={{ y: [0, -25, 0, 25, 0] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <DotLottieReact src="/flyingBee.lottie" autoplay loop style={{ width: 130, height: 130 }} />
+        </motion.div>
+      </motion.div>
 
       {/* Bottom-left particle bees */}
       {PARTICLE_BEES_LEFT.map((b, i) => (
@@ -167,10 +161,12 @@ function App() {
         {/* Title block — centred, nudged above midpoint */}
         <div
           className="absolute inset-x-0 flex flex-col items-center gap-4"
-          style={{ top: "38%" }}
+          style={{ top: "25%" }}
         >
-          {/* Welcome greeting above the logo */}
-          <div className="flex flex-col items-center gap-1">
+          <BrandLogo />
+
+          {/* Welcome greeting below the logo */}
+          <div className="flex flex-col items-center gap-1 mt-30">
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -180,12 +176,10 @@ function App() {
               Welcome back
             </motion.p>
 
-            <div className="mb-10">
+            <div className="mt-1">
               <BrushName name={username} />
             </div>
           </div>
-
-          <BrandLogo />
 
         </div>
 
