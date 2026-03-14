@@ -1,14 +1,17 @@
 // src/routes/index.tsx
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { lazy } from "react"
 import { motion } from "framer-motion"
-import { DriverScoreCircle } from "#/components/home/DriverScoreCircle"
+
+const DotLottieReact = lazy(() =>
+  import("@lottiefiles/dotlottie-react").then((m) => ({ default: m.DotLottieReact }))
+)
 import { BrandLogo } from "#/components/home/BrandLogo"
 import { Smartphone, Video } from "lucide-react"
 import { authClient } from "#/lib/auth-client"
 
 export const Route = createFileRoute("/")({ component: App })
 
-const DRIVER_SCORE = 85
 const APP_URL = "https://kyranaus-unihack-2026.kyranmenezesaus.workers.dev/"
 const QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=000000&bgcolor=ffffff&data=${encodeURIComponent(APP_URL)}`
 
@@ -47,6 +50,78 @@ function BrushName({ name }: { name: string }) {
   )
 }
 
+const PARTICLE_BEES_LEFT = [
+  { xPct: 2,  delay: 0,    dur: 3.8 },
+  { xPct: 7,  delay: 0.7,  dur: 4.2 },
+  { xPct: 12, delay: 1.4,  dur: 3.5 },
+  { xPct: 17, delay: 2.1,  dur: 4.6 },
+  { xPct: 22, delay: 2.8,  dur: 3.9 },
+  { xPct: 27, delay: 0.3,  dur: 4.1 },
+]
+
+const PARTICLE_BEES_RIGHT = [
+  { xPct: 2,  delay: 0.4,  dur: 4.0 },
+  { xPct: 7,  delay: 1.1,  dur: 3.6 },
+  { xPct: 12, delay: 1.8,  dur: 4.4 },
+  { xPct: 17, delay: 2.5,  dur: 3.7 },
+  { xPct: 22, delay: 0.9,  dur: 4.2 },
+  { xPct: 27, delay: 3.2,  dur: 3.5 },
+]
+
+function BeeAnimations() {
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
+      {/* Big bee — left to right with smooth sine-wave up/down */}
+      <motion.div
+        className="absolute"
+        style={{ top: "35%", left: 0 }}
+        animate={{
+          x: ["-160px", "calc(100vw + 160px)"],
+          y: [0, -70, 0, 70, 0, -70, 0, 70, 0],
+        }}
+        transition={{
+          x: { duration: 14, repeat: Infinity, repeatDelay: 3, ease: "linear" },
+          y: {
+            duration: 14,
+            repeat: Infinity,
+            repeatDelay: 3,
+            times: [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1],
+            ease: ["easeInOut", "easeInOut", "easeInOut", "easeInOut", "easeInOut", "easeInOut", "easeInOut", "easeInOut"],
+          },
+        }}
+      >
+        <DotLottieReact src="/flyingBee.lottie" autoplay loop style={{ width: 130, height: 130 }} />
+      </motion.div>
+
+      {/* Bottom-left particle bees */}
+      {PARTICLE_BEES_LEFT.map((b, i) => (
+        <motion.div
+          key={`bl-${i}`}
+          className="absolute"
+          style={{ bottom: -40, left: `${b.xPct}%` }}
+          animate={{ y: ["0px", "-95vh"], opacity: [0, 1, 1, 0] }}
+          transition={{ duration: b.dur, repeat: Infinity, delay: b.delay, ease: "easeOut" }}
+        >
+          <DotLottieReact src="/2bees.lottie" autoplay loop style={{ width: 36, height: 36 }} />
+        </motion.div>
+      ))}
+
+      {/* Bottom-right particle bees */}
+      {PARTICLE_BEES_RIGHT.map((b, i) => (
+        <motion.div
+          key={`br-${i}`}
+          className="absolute"
+          style={{ bottom: -40, right: `${b.xPct}%` }}
+          animate={{ y: ["0px", "-95vh"], opacity: [0, 1, 1, 0] }}
+          transition={{ duration: b.dur, repeat: Infinity, delay: b.delay, ease: "easeOut" }}
+        >
+          <DotLottieReact src="/2bees.lottie" autoplay loop style={{ width: 36, height: 36 }} />
+        </motion.div>
+      ))}
+    </div>
+  )
+}
+
 function App() {
   const navigate = useNavigate()
   const { data: session, isPending } = authClient.useSession()
@@ -61,10 +136,11 @@ function App() {
   const username = session.user.name || "Driver"
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-background text-foreground relative">
+      <BeeAnimations />
 
       {/* ── Desktop splash (hidden on mobile) ── */}
-      <div className="hidden md:flex min-h-screen flex-col items-center justify-center gap-10 px-8 pt-14">
+      <div className="hidden md:flex min-h-screen flex-col items-center justify-center gap-10 px-8 pt-14 relative z-10">
         <BrandLogo />
         <div className="flex flex-col items-center gap-4">
           {/* QR code */}
@@ -86,7 +162,7 @@ function App() {
       </div>
 
       {/* ── Mobile app (hidden on desktop) ── */}
-      <div className="md:hidden relative mx-auto min-h-screen max-w-md px-4 pb-28">
+      <div className="md:hidden relative mx-auto min-h-screen max-w-md px-4 pb-28 z-10">
 
         {/* Title block — sits at 20% from the top, adapts to any screen height */}
         <div
@@ -111,18 +187,6 @@ function App() {
             </div>
           </div>
 
-          {/* Driver score — centred below the name */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 3.2, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-4 flex flex-col items-center gap-1"
-          >
-            <DriverScoreCircle score={DRIVER_SCORE} size={160} />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mt-2">
-              Driver score
-            </span>
-          </motion.div>
         </div>
 
         {/* Start recording button — floats above the nav bar */}
