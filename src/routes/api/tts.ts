@@ -18,6 +18,13 @@ async function handle({ request }: { request: Request }) {
     return new Response("Method Not Allowed", { status: 405 })
   }
 
+  if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+    return new Response(JSON.stringify({ error: "AWS credentials not configured" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
+
   const body = (await request.json()) as { text?: string }
   const text = body.text?.trim()
 
@@ -25,27 +32,35 @@ async function handle({ request }: { request: Request }) {
     return new Response("Invalid or too-long text", { status: 400 })
   }
 
-  const command = new SynthesizeSpeechCommand({
-    Text: text,
-    OutputFormat: "mp3",
-    VoiceId: "Joanna",
-    Engine: "neural",
-  })
+  try {
+    const command = new SynthesizeSpeechCommand({
+      Text: text,
+      OutputFormat: "mp3",
+      VoiceId: "Joanna",
+      Engine: "neural",
+    })
 
-  const result = await polly.send(command)
+    const result = await polly.send(command)
 
-  if (!result.AudioStream) {
-    return new Response("Polly returned no audio", { status: 502 })
+    if (!result.AudioStream) {
+      return new Response("Polly returned no audio", { status: 502 })
+    }
+
+    const audioBytes = await result.AudioStream.transformToByteArray()
+
+    return new Response(audioBytes, {
+      headers: {
+        "Content-Type": "audio/mpeg",
+        "Content-Length": String(audioBytes.length),
+      },
+    })
+  } catch (err) {
+    console.error("TTS error:", err instanceof Error ? err.message : err)
+    return new Response(JSON.stringify({ error: "TTS failed" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    })
   }
-
-  const audioBytes = await result.AudioStream.transformToByteArray()
-
-  return new Response(audioBytes, {
-    headers: {
-      "Content-Type": "audio/mpeg",
-      "Content-Length": String(audioBytes.length),
-    },
-  })
 }
 
 export const Route = createFileRoute("/api/tts")({

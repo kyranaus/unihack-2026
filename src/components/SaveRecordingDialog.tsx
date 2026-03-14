@@ -5,10 +5,12 @@ import { saveRecording } from "#/lib/replay-store";
 
 interface Props {
   pending: PendingRecording;
+  sessionId: string | null;
+  score: number | null;
   onDone: () => void;
 }
 
-export function SaveRecordingDialog({ pending, onDone }: Props) {
+export function SaveRecordingDialog({ pending, sessionId, score, onDone }: Props) {
   const [saving, setSaving] = useState(false);
 
   const mins = Math.floor(pending.duration / 60).toString().padStart(2, "0");
@@ -17,7 +19,7 @@ export function SaveRecordingDialog({ pending, onDone }: Props) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await saveRecording(pending.blob, pending.duration, pending.mimeType);
+      await saveRecording(pending.blob, pending.duration, pending.mimeType, sessionId, score);
     } catch (e) {
       console.error("Failed to save recording", e);
     }

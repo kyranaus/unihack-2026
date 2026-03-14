@@ -12,3 +12,29 @@ model Todo {
   title     String
   createdAt DateTime @default(now())
 }
+
+model DriveSession {
+  id        String       @id @default(cuid())
+  startedAt DateTime     @default(now())
+  endedAt   DateTime?
+  summary   String?
+  score     Int?
+  cameras   String[]
+  events    DriveEvent[]
+  createdAt DateTime     @default(now())
+}
+
+model DriveEvent {
+  id         String       @id @default(cuid())
+  sessionId  String
+  session    DriveSession @relation(fields: [sessionId], references: [id])
+  type       String
+  camera     String       @default("front")
+  elapsedSec Int
+  summary    String
+  severity   String
+  metadata   Json         @default("{}")
+  createdAt  DateTime     @default(now())
+
+  @@index([sessionId])
+}
