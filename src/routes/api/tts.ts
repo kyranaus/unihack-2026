@@ -1,8 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { PollyClient, SynthesizeSpeechCommand } from "@aws-sdk/client-polly"
+import { FetchHttpHandler } from "@smithy/fetch-http-handler"
 
 const polly = new PollyClient({
   region: process.env.AWS_REGION ?? "ap-southeast-2",
+  // FetchHttpHandler uses the Web Fetch API instead of node:http,
+  // which is required for Cloudflare Workers compatibility.
+  requestHandler: new FetchHttpHandler(),
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
