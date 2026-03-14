@@ -8,8 +8,7 @@ import { Smartphone, Video } from "lucide-react"
 export const Route = createFileRoute("/_authed/")({ component: App })
 
 const DRIVER_SCORE = 85
-const APP_URL = "https://kyranaus-unihack-2026.kyranmenezesaus.workers.dev/"
-const QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=000000&bgcolor=ffffff&data=${encodeURIComponent(APP_URL)}`
+const QR_SRC = `https://beesafe.unihack.me/`
 
 // Brush-stroke reveal — each character pivots from the top like a loaded brush
 const brushContainer = {

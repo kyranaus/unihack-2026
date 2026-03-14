@@ -115,6 +115,7 @@ export default function RecordView() {
   const [showReport, setShowReport] = useState(false);
   const [ending, setEnding] = useState(false);
   const [sessionScore, setSessionScore] = useState<number | null>(null);
+  const [lastTxHash, setLastTxHash] = useState<string | null>(null);
   const [liveLog, setLiveLog] = useState<string[]>([]);
 
   // Emergency overlay
@@ -401,6 +402,17 @@ export default function RecordView() {
       const uploaded = await streamUpload.finish();
       addLog(uploaded ? "Cloud upload complete" : "Cloud upload skipped");
 
+      if (uploaded) {
+        try {
+          addLog("Hashing video & storing on blockchain...");
+          const { txHash } = await client.storeVideoHash({ sessionId });
+          setLastTxHash(txHash);
+          addLog(`Blockchain tx: ${txHash.slice(0, 16)}...`);
+        } catch (err) {
+          addLog(`Blockchain: ${err instanceof Error ? err.message : err}`);
+        }
+      }
+
       addLog("Ending session, generating summary...");
       try {
         await client.endSession({ sessionId });
@@ -440,8 +452,6 @@ export default function RecordView() {
     if (blob) {
       setPendingRec({ blob, duration, mimeType: getSupportedMimeType() || "video/webm", frontBlob, backBlob, speedTrack });
     }
-
-    setLiveLog([]);
   }, [frontRecorder, backRecorder, addLog, queryClient, streamUpload]);
 
   // Keep ref up-to-date for auto-stop timer
@@ -994,7 +1004,8 @@ export default function RecordView() {
           pending={pendingRec}
           sessionId={lastSessionIdRef.current}
           score={sessionScore}
-          onDone={() => { setPendingRec(null); setSessionScore(null); lastSessionIdRef.current = null; }}
+          txHash={lastTxHash}
+          onDone={() => { setPendingRec(null); setSessionScore(null); setLastTxHash(null); setLiveLog([]); lastSessionIdRef.current = null; }}
         />
       )}
 

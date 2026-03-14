@@ -15,6 +15,8 @@ import {
   completeVideoUpload,
   abortVideoUpload,
   findSafePullover,
+  storeVideoHash,
+  verifyVideoHash,
 } from './drives'
 
 export default {
@@ -35,4 +37,6 @@ export default {
   completeVideoUpload,
   abortVideoUpload,
   findSafePullover,
+  storeVideoHash,
+  verifyVideoHash,
 }

@@ -74,8 +74,10 @@ model DriveSession {
   summary   String?
   score     Int?
   cameras   String[]
-  videoKey  String?
-  events    DriveEvent[]
+  videoKey   String?
+  videoHash  String?
+  txHash     String?
+  events     DriveEvent[]
   createdAt DateTime     @default(now())
 
   @@index([userId])
