@@ -34,13 +34,9 @@ function drawBracketBox(
   }
 
   const corners: [number, number, number, number, number, number][] = [
-    // [startX, startY, midX, midY, endX, endY]  — top-left
     [x, y + BRACKET_LEN, x, y, x + BRACKET_LEN, y],
-    // top-right
     [x + w - BRACKET_LEN, y, x + w, y, x + w, y + BRACKET_LEN],
-    // bottom-left
     [x, y + h - BRACKET_LEN, x, y + h, x + BRACKET_LEN, y + h],
-    // bottom-right
     [x + w - BRACKET_LEN, y + h, x + w, y + h, x + w, y + h - BRACKET_LEN],
   ];
 
@@ -85,19 +81,16 @@ function drawLabel(
   const px = x;
   const py = y - ph - 2;
 
-  // pill background
   ctx.fillStyle = "rgba(0,0,0,0.75)";
   ctx.beginPath();
   ctx.roundRect(px, py, pw, ph, 4);
   ctx.fill();
 
-  // coloured left accent
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.roundRect(px, py, 3, ph, [4, 0, 0, 4]);
   ctx.fill();
 
-  // text
   ctx.fillStyle = "#ffffff";
   ctx.textBaseline = "middle";
   ctx.fillText(text, px + 7, py + ph / 2);
@@ -153,7 +146,7 @@ export function TrafficOverlay({
       if (pw < 10 || ph < 10) continue;
 
       drawFill(ctx, px, py, pw, ph, det.color);
-      drawBracketBox(ctx, px, py, pw, ph, det.color, true);
+      drawBracketBox(ctx, px, py, pw, ph, det.color, det.confidence > 0.7);
       const pct = Math.round(det.confidence * 100);
       drawLabel(ctx, `${det.label} ${pct}%`, px, py, det.color);
     }

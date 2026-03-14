@@ -10,7 +10,8 @@ import { nitro } from 'nitro/vite'
 
 const config = defineConfig({
   server: {
-    allowedHosts: ["nonmedicative-dayana-slipperlike.ngrok-free.dev"]
+    host: true,
+    allowedHosts: true,
   },
   plugins: [
     devtools(),

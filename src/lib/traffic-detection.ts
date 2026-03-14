@@ -22,8 +22,8 @@ const COCO_CLASSES = [
 
 /** Classes relevant to road/traffic scenes */
 export const TRAFFIC_CLASSES = new Set([
-  "person", "bicycle", "car", "motorcycle", "bus", "train", "truck",
-  "traffic light", "fire hydrant", "stop sign",
+  "person", "bicycle", "car", "motorcycle", "bus", "truck",
+  "traffic light", "stop sign",
 ]);
 
 /** Colour per class family */
@@ -34,9 +34,7 @@ export const CLASS_COLORS: Record<string, string> = {
   car: "#facc15",         // yellow
   truck: "#4ade80",       // green
   bus: "#4ade80",         // green
-  train: "#4ade80",       // green
   "traffic light": "#a78bfa", // purple
-  "fire hydrant": "#f87171",  // red
   "stop sign": "#f87171",     // red
 };
 
@@ -49,6 +47,14 @@ export interface Detection {
   color: string;
 }
 
+// ── ONNX runtime singleton ───────────────────────────────────────────────────
+
+let _ortModule: typeof import("onnxruntime-web") | null = null;
+async function getOrt() {
+  if (!_ortModule) _ortModule = await import("onnxruntime-web");
+  return _ortModule;
+}
+
 // ── ONNX session singleton ────────────────────────────────────────────────────
 
 let sessionPromise: Promise<unknown> | null = null;
@@ -56,9 +62,8 @@ let sessionPromise: Promise<unknown> | null = null;
 export async function loadYoloModel(): Promise<unknown> {
   if (sessionPromise) return sessionPromise;
   sessionPromise = (async () => {
-    const ort = await import("onnxruntime-web");
-    // Disable web workers to prevent Vite dev server errors
-    ort.env.wasm.numThreads = 1;
+    const ort = await getOrt();
+    ort.env.wasm.numThreads = navigator.hardwareConcurrency > 4 ? 2 : 1;
     // Prefer WebGL GPU, fall back to WASM
     ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/";
     const opts: Record<string, unknown> = { executionProviders: ["webgl", "wasm"] };
@@ -85,14 +90,19 @@ export async function loadYoloModel(): Promise<unknown> {
 
 // ── Pre/post processing ──────────────────────────────────────────────────────
 
+let _offscreen: HTMLCanvasElement | null = null;
+let _offCtx: CanvasRenderingContext2D | null = null;
+
 /** Resize & normalize a video frame into a Float32 NCHW tensor [1, 3, 640, 640] */
 function preprocessFrame(video: HTMLVideoElement, size: number): Float32Array {
-  const offscreen = document.createElement("canvas");
-  offscreen.width = size;
-  offscreen.height = size;
-  const ctx = offscreen.getContext("2d")!;
-  ctx.drawImage(video, 0, 0, size, size);
-  const { data } = ctx.getImageData(0, 0, size, size); // RGBA uint8
+  if (!_offscreen) {
+    _offscreen = document.createElement("canvas");
+    _offscreen.width = size;
+    _offscreen.height = size;
+    _offCtx = _offscreen.getContext("2d")!;
+  }
+  _offCtx!.drawImage(video, 0, 0, size, size);
+  const { data } = _offCtx!.getImageData(0, 0, size, size); // RGBA uint8
 
   const tensor = new Float32Array(3 * size * size);
   for (let i = 0; i < size * size; i++) {
@@ -141,7 +151,7 @@ export async function runDetection(
   video: HTMLVideoElement,
   confThresh = 0.45,
 ): Promise<Detection[]> {
-  const ort = await import("onnxruntime-web");
+  const ort = await getOrt();
   const size = YOLO_INPUT_SIZE;
   const data = preprocessFrame(video, size);
   const tensor = new ort.Tensor("float32", data, [1, 3, size, size]);

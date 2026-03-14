@@ -29,6 +29,7 @@ export function useTrafficDetection(
   const sessionRef = useRef<unknown>(null);
   const rafRef = useRef<number>(0);
   const lastRunRef = useRef<number>(0);
+  const runningRef = useRef(false);
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
 
@@ -51,7 +52,7 @@ export function useTrafficDetection(
   const detect = useCallback(async () => {
     const video = videoRef.current;
     const session = sessionRef.current;
-    if (!video || !session || video.readyState < 2) return;
+    if (!video || !session || video.readyState < 2 || video.paused || document.hidden) return;
 
     try {
       const dets = await runDetection(session, video, confThresh);
@@ -72,9 +73,10 @@ export function useTrafficDetection(
 
     const loop = (now: number) => {
       if (cancelled) return;
-      if (now - lastRunRef.current >= intervalMs) {
+      if (!runningRef.current && now - lastRunRef.current >= intervalMs) {
         lastRunRef.current = now;
-        detect();
+        runningRef.current = true;
+        detect().finally(() => { runningRef.current = false; });
       }
       rafRef.current = requestAnimationFrame(loop);
     };
