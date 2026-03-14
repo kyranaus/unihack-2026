@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ReplayRouteImport } from './routes/replay'
 import { Route as RecordRouteImport } from './routes/record'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as EmergencyRouteImport } from './routes/emergency'
 import { Route as DriverMonitorRouteImport } from './routes/driver-monitor'
 import { Route as AboutRouteImport } from './routes/about'
@@ -34,6 +36,16 @@ const RecordRoute = RecordRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EmergencyRoute = EmergencyRouteImport.update({
@@ -82,6 +94,8 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/driver-monitor': typeof DriverMonitorRoute
   '/emergency': typeof EmergencyRoute
+  '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRoute
   '/record': typeof RecordRoute
   '/replay': typeof ReplayRoute
@@ -95,6 +109,8 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/driver-monitor': typeof DriverMonitorRoute
   '/emergency': typeof EmergencyRoute
+  '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRoute
   '/record': typeof RecordRoute
   '/replay': typeof ReplayRoute
@@ -109,6 +125,8 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/driver-monitor': typeof DriverMonitorRoute
   '/emergency': typeof EmergencyRoute
+  '/login': typeof LoginRoute
+  '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRoute
   '/record': typeof RecordRoute
   '/replay': typeof ReplayRoute
@@ -124,6 +142,8 @@ export interface FileRouteTypes {
     | '/about'
     | '/driver-monitor'
     | '/emergency'
+    | '/login'
+    | '/onboarding'
     | '/profile'
     | '/record'
     | '/replay'
@@ -137,6 +157,8 @@ export interface FileRouteTypes {
     | '/about'
     | '/driver-monitor'
     | '/emergency'
+    | '/login'
+    | '/onboarding'
     | '/profile'
     | '/record'
     | '/replay'
@@ -150,6 +172,8 @@ export interface FileRouteTypes {
     | '/about'
     | '/driver-monitor'
     | '/emergency'
+    | '/login'
+    | '/onboarding'
     | '/profile'
     | '/record'
     | '/replay'
@@ -164,6 +188,8 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   DriverMonitorRoute: typeof DriverMonitorRoute
   EmergencyRoute: typeof EmergencyRoute
+  LoginRoute: typeof LoginRoute
+  OnboardingRoute: typeof OnboardingRoute
   ProfileRoute: typeof ProfileRoute
   RecordRoute: typeof RecordRoute
   ReplayRoute: typeof ReplayRoute
@@ -194,6 +220,20 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/emergency': {
@@ -260,6 +300,8 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   DriverMonitorRoute: DriverMonitorRoute,
   EmergencyRoute: EmergencyRoute,
+  LoginRoute: LoginRoute,
+  OnboardingRoute: OnboardingRoute,
   ProfileRoute: ProfileRoute,
   RecordRoute: RecordRoute,
   ReplayRoute: ReplayRoute,
