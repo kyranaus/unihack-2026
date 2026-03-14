@@ -474,7 +474,21 @@ export default function RecordView() {
         className="flex flex-none items-center justify-between px-4 pb-2"
         style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
       >
-        <div className="w-16" />
+        {/* Front · Back toggle */}
+        <div className="flex items-center rounded-full bg-white/10 p-0.5">
+          {(["front", "back"] as const).map((cam) => (
+            <button
+              key={cam}
+              type="button"
+              onClick={() => setActiveCamera(cam)}
+              className={`rounded-full px-3 py-1 text-xs font-semibold capitalize transition-colors ${
+                activeCamera === cam ? "bg-white text-black" : "text-white/60"
+              }`}
+            >
+              {cam}
+            </button>
+          ))}
+        </div>
         <span className="text-base font-bold tracking-wide text-white">Record</span>
         <div className="w-16 text-right">
           <span className="font-mono text-sm font-bold text-white">
@@ -499,9 +513,10 @@ export default function RecordView() {
         {/* Back camera — main or PiP */}
         <video
           ref={backCamera.videoRef}
+          onClick={() => activeCamera === "front" && setActiveCamera("back")}
           className={activeCamera === "back"
             ? "absolute inset-0 z-0 h-full w-full object-cover"
-            : "absolute top-3 left-3 z-10 h-28 w-20 rounded-xl object-cover ring-2 ring-white/30"}
+            : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
           playsInline
           muted
         />
@@ -509,9 +524,10 @@ export default function RecordView() {
         {/* Front camera — main or PiP */}
         <video
           ref={videoRef}
+          onClick={() => activeCamera === "back" && setActiveCamera("front")}
           className={activeCamera === "front"
             ? "absolute inset-0 z-0 h-full w-full object-cover"
-            : "absolute top-3 left-3 z-10 h-28 w-20 rounded-xl object-cover ring-2 ring-white/30"}
+            : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
           style={{ transform: "scaleX(-1)" }}
           playsInline
           muted
@@ -520,9 +536,10 @@ export default function RecordView() {
         {/* Face detection canvas — always follows front camera */}
         <canvas
           ref={canvasRef}
+          onClick={() => activeCamera === "back" && setActiveCamera("front")}
           className={activeCamera === "front"
             ? "absolute inset-0 z-1 h-full w-full"
-            : "absolute top-3 left-3 z-11 h-28 w-20 rounded-xl"}
+            : "absolute top-3 left-3 z-11 h-28 w-20 cursor-pointer rounded-xl"}
           style={{ transform: "scaleX(-1)" }}
         />
 
@@ -651,22 +668,6 @@ export default function RecordView() {
             className={`bg-red-500 transition-all duration-200 ${isRecording ? "h-8 w-8 rounded-lg" : "h-14 w-14 rounded-full"}`}
           />
         </button>
-
-        {/* Front · Back toggle */}
-        <div className="flex items-center rounded-full bg-white/10 p-0.5">
-          {(["front", "back"] as const).map((cam) => (
-            <button
-              key={cam}
-              type="button"
-              onClick={() => setActiveCamera(cam)}
-              className={`rounded-full px-5 py-1.5 text-xs font-semibold capitalize transition-colors ${
-                activeCamera === cam ? "bg-white text-black" : "text-white/60"
-              }`}
-            >
-              {cam}
-            </button>
-          ))}
-        </div>
 
         {/* Live log */}
         {liveLog.length > 0 && (
