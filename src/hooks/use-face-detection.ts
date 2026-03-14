@@ -1,6 +1,10 @@
 // src/hooks/use-face-detection.ts
 import { useEffect, useState } from "react";
-import type { DriverState, EarCalibration, SmoothedMetrics } from "#/lib/driver-monitor-utils";
+import type {
+	DriverState,
+	EarCalibration,
+	SmoothedMetrics,
+} from "#/lib/driver-monitor-utils";
 import {
 	CONFIG,
 	computeEAR,
@@ -35,6 +39,8 @@ export function useFaceDetection(
 		let landmarker: any = null;
 		let disposed = false;
 
+		const MIN_DETECT_INTERVAL = 33; // ~30fps cap on detection calls
+
 		const s = {
 			smoothedEAR: 0.3,
 			smoothedYaw: 1.0,
@@ -46,6 +52,7 @@ export function useFaceDetection(
 			frameCount: 0,
 			lastFpsTime: performance.now(),
 			lastRenderTime: 0,
+			lastDetectTime: 0,
 			currentFps: 0,
 			cal: createEarCalibration() as EarCalibration,
 		};
@@ -60,34 +67,34 @@ export function useFaceDetection(
 				const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL);
 				if (disposed) return;
 
-			try {
-				landmarker = await FaceLandmarker.createFromOptions(vision, {
-					baseOptions: {
-						modelAssetPath: FACE_LANDMARKER_MODEL_URL,
-						delegate: "GPU",
-					},
-					runningMode: "VIDEO",
-					numFaces: 1,
-					outputFaceBlendshapes: false,
-					outputFacialTransformationMatrixes: false,
-				});
-			} catch {
-				console.warn("[FaceDetect] GPU delegate failed, falling back to CPU");
-				landmarker = await FaceLandmarker.createFromOptions(vision, {
-					baseOptions: {
-						modelAssetPath: FACE_LANDMARKER_MODEL_URL,
-						delegate: "CPU",
-					},
-					runningMode: "VIDEO",
-					numFaces: 1,
-					outputFaceBlendshapes: false,
-					outputFacialTransformationMatrixes: false,
-				});
-			}
-			if (disposed) {
-				landmarker.close();
-				return;
-			}
+				try {
+					landmarker = await FaceLandmarker.createFromOptions(vision, {
+						baseOptions: {
+							modelAssetPath: FACE_LANDMARKER_MODEL_URL,
+							delegate: "GPU",
+						},
+						runningMode: "VIDEO",
+						numFaces: 1,
+						outputFaceBlendshapes: false,
+						outputFacialTransformationMatrixes: false,
+					});
+				} catch {
+					console.warn("[FaceDetect] GPU delegate failed, falling back to CPU");
+					landmarker = await FaceLandmarker.createFromOptions(vision, {
+						baseOptions: {
+							modelAssetPath: FACE_LANDMARKER_MODEL_URL,
+							delegate: "CPU",
+						},
+						runningMode: "VIDEO",
+						numFaces: 1,
+						outputFaceBlendshapes: false,
+						outputFacialTransformationMatrixes: false,
+					});
+				}
+				if (disposed) {
+					landmarker.close();
+					return;
+				}
 
 				setIsModelLoading(false);
 				detect();
@@ -108,11 +115,17 @@ export function useFaceDetection(
 				return;
 			}
 
+			const now = performance.now();
+			if (now - s.lastDetectTime < MIN_DETECT_INTERVAL) {
+				animFrameId = requestAnimationFrame(detect);
+				return;
+			}
+			s.lastDetectTime = now;
+
 			if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
 			if (canvas.height !== video.videoHeight)
 				canvas.height = video.videoHeight;
 
-			const now = performance.now();
 			const ctx = canvas.getContext("2d");
 			if (!ctx) {
 				animFrameId = requestAnimationFrame(detect);
@@ -126,15 +139,15 @@ export function useFaceDetection(
 				s.lastFpsTime = now;
 			}
 
-		let results: any;
-		try {
-			results = landmarker.detectForVideo(video, now);
-		} catch {
-			animFrameId = requestAnimationFrame(detect);
-			return;
-		}
-		const hasFace = results.faceLandmarks && results.faceLandmarks.length > 0;
-		const landmarks = hasFace ? results.faceLandmarks[0] : null;
+			let results: any;
+			try {
+				results = landmarker.detectForVideo(video, now);
+			} catch {
+				animFrameId = requestAnimationFrame(detect);
+				return;
+			}
+			const hasFace = results.faceLandmarks && results.faceLandmarks.length > 0;
+			const landmarks = hasFace ? results.faceLandmarks[0] : null;
 
 			if (!hasFace) {
 				s.noFaceFrames++;
@@ -146,25 +159,30 @@ export function useFaceDetection(
 			} else if (landmarks) {
 				s.noFaceFrames = 0;
 
-			const ear = computeEAR(landmarks);
-			const pose = computeHeadPose(landmarks);
+				const ear = computeEAR(landmarks);
+				const pose = computeHeadPose(landmarks);
 
-			s.smoothedEAR = ema(ear.average, s.smoothedEAR, CONFIG.EAR_SMOOTHING);
-			s.smoothedYaw = ema(
-				pose.yawRatio,
-				s.smoothedYaw,
-				CONFIG.HEAD_SMOOTHING,
-			);
-			s.smoothedPitch = ema(
-				pose.pitchRatio,
-				s.smoothedPitch,
-				CONFIG.HEAD_SMOOTHING,
-			);
+				s.smoothedEAR = ema(ear.average, s.smoothedEAR, CONFIG.EAR_SMOOTHING);
+				s.smoothedYaw = ema(
+					pose.yawRatio,
+					s.smoothedYaw,
+					CONFIG.HEAD_SMOOTHING,
+				);
+				s.smoothedPitch = ema(
+					pose.pitchRatio,
+					s.smoothedPitch,
+					CONFIG.HEAD_SMOOTHING,
+				);
 
-			updateEarCalibration(s.cal, ear.average, pose.yawRatio, pose.pitchRatio);
-			const earThreshold = getEarThreshold(s.cal);
+				updateEarCalibration(
+					s.cal,
+					ear.average,
+					pose.yawRatio,
+					pose.pitchRatio,
+				);
+				const earThreshold = getEarThreshold(s.cal);
 
-			if (s.smoothedEAR < earThreshold) {
+				if (s.smoothedEAR < earThreshold) {
 					if (!s.eyesClosedSince) s.eyesClosedSince = now;
 				} else {
 					s.eyesClosedSince = null;
@@ -229,5 +247,12 @@ export function useFaceDetection(
 		};
 	}, [videoRef, canvasRef]);
 
-	return { driverState, metrics, fps, isModelLoading, calSamples, earThreshold };
+	return {
+		driverState,
+		metrics,
+		fps,
+		isModelLoading,
+		calSamples,
+		earThreshold,
+	};
 }

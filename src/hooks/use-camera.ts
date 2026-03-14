@@ -9,6 +9,7 @@ export function useCamera(
 	source: CameraSource,
 	enabled = true,
 	onTrackEnded?: () => void,
+	resolution?: { width: number; height: number },
 ) {
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const [stream, setStream] = useState<MediaStream | null>(null);
@@ -56,13 +57,15 @@ export function useCamera(
 			setError(null);
 			setIsReady(false);
 			try {
+				const w = resolution?.width ?? 1280;
+				const h = resolution?.height ?? 720;
 				const videoConstraint = deviceId
 					? {
 							deviceId: { exact: deviceId },
-							width: { ideal: 1280 },
-							height: { ideal: 720 },
+							width: { ideal: w },
+							height: { ideal: h },
 						}
-					: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } };
+					: { facingMode, width: { ideal: w }, height: { ideal: h } };
 
 				currentStream = await navigator.mediaDevices.getUserMedia({
 					video: videoConstraint,
@@ -95,14 +98,9 @@ export function useCamera(
 							setError(
 								"No camera was found. Connect a camera or use a device with a camera.",
 							);
-						} else if (
-							name === "NotAllowedError" ||
-							name === "SecurityError"
-						) {
+						} else if (name === "NotAllowedError" || name === "SecurityError") {
 							const secure =
-								typeof window !== "undefined"
-									? window.isSecureContext
-									: true;
+								typeof window !== "undefined" ? window.isSecureContext : true;
 							if (!secure) {
 								setError(
 									"Camera access is blocked because this page is not served over HTTPS. Use https:// or localhost.",
@@ -136,7 +134,7 @@ export function useCamera(
 				for (const t of currentStream.getTracks()) t.stop();
 			}
 		};
-	}, [deviceId, facingMode, enabled]);
+	}, [deviceId, facingMode, enabled, resolution?.width, resolution?.height]);
 
 	const stopStream = useCallback(() => {
 		if (stream) {
