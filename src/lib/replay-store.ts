@@ -4,6 +4,11 @@ const DB_VERSION = 2;
 const STORE_NAME = "recordings";
 export const MAX_RECORDINGS = 3;
 
+export interface SpeedSample {
+  elapsedSec: number;
+  speedKmh: number;
+}
+
 export interface Recording {
   id: string;
   timestamp: number;
@@ -13,6 +18,7 @@ export interface Recording {
   mimeType: string;
   score: number;
   sessionId: string | null;
+  speedTrack?: SpeedSample[];
 }
 export type RecordingMeta = Omit<Recording, "videoBlob" | "backVideoBlob">;
 
@@ -58,6 +64,7 @@ export async function saveRecording(
   sessionId: string | null = null,
   score: number | null = null,
   backBlob?: Blob | null,
+  speedTrack?: SpeedSample[],
 ): Promise<string> {
   const db = await openDB();
   const all = await getAllMetas(db);
@@ -72,6 +79,7 @@ export async function saveRecording(
   const record: Recording = {
     id, timestamp: Date.now(), duration, videoBlob: blob, mimeType, score: finalScore, sessionId,
     ...(backBlob ? { backVideoBlob: backBlob } : {}),
+    ...(speedTrack?.length ? { speedTrack } : {}),
   };
   return new Promise((resolve, reject) => {
     const req = db.transaction(STORE_NAME, "readwrite").objectStore(STORE_NAME).add(record);
