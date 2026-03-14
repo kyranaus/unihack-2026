@@ -124,6 +124,8 @@ export default function RecordView() {
 
   const sessionIdRef = useRef<string | null>(null);
   const recSecondsRef = useRef(0);
+  const speedKmhRef = useRef<number | null>(null);
+  const speedTrackRef = useRef<Array<{ elapsedSec: number; speedKmh: number }>>([]);
   const lastTTSWarningRef = useRef(0);
   const lastSessionIdRef = useRef<string | null>(null);
   const handleStopRecordingRef = useRef<() => void>(() => {});
@@ -161,6 +163,9 @@ export default function RecordView() {
 
   // GPS speed for crash detection context
   const { speedKmh } = useSpeed();
+
+  // Keep ref in sync for use inside timer callback
+  useEffect(() => { speedKmhRef.current = speedKmh; }, [speedKmh]);
 
   // Crash detection (better accuracy than useCollisionDetection)
   const handleCrash = useCallback(async ({ g }: { g: number; speedKmh: number | null }) => {
@@ -227,11 +232,18 @@ export default function RecordView() {
 
   // REC timer + auto-stop at 5 min
   useEffect(() => {
-    if (!isRecording) { setRecSeconds(0); recSecondsRef.current = 0; return; }
+    if (!isRecording) {
+      setRecSeconds(0);
+      recSecondsRef.current = 0;
+      speedTrackRef.current = [];
+      return;
+    }
     const id = setInterval(() => {
       setRecSeconds((s) => {
         const next = s + 1;
         recSecondsRef.current = next;
+        const spd = speedKmhRef.current;
+        if (spd != null) speedTrackRef.current.push({ elapsedSec: next, speedKmh: spd });
         if (next >= MAX_RECORD_SECS) {
           handleStopRecordingRef.current();
           return 0;
@@ -400,7 +412,7 @@ export default function RecordView() {
 
     const blob = compositeBlob ?? backBlob ?? frontBlob;
     if (blob) {
-      setPendingRec({ blob, duration, mimeType: getSupportedMimeType() || "video/webm", frontBlob, backBlob });
+      setPendingRec({ blob, duration, mimeType: getSupportedMimeType() || "video/webm", frontBlob, backBlob, speedTrack: [...speedTrackRef.current] });
     }
 
     setLiveLog([]);

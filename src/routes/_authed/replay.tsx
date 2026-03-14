@@ -6,7 +6,7 @@ import { Play, Pause, BarChart2, Clock, Download, Zap } from "lucide-react";
 import { DriverFeedback } from "#/components/DriverFeedback";
 import type { SessionData } from "#/components/DriverFeedback";
 import { listRecordings, getRecording } from "#/lib/replay-store";
-import type { RecordingMeta } from "#/lib/replay-store";
+import type { RecordingMeta, SpeedSample } from "#/lib/replay-store";
 import { client } from "#/server/orpc/client";
 
 export const Route = createFileRoute("/_authed/replay")({
@@ -35,12 +35,28 @@ function scoreColor(score: number): string {
   return score >= 85 ? "#22c55e" : score >= 70 ? "#f59e0b" : "#ef4444";
 }
 
+function speedAtTime(track: SpeedSample[] | undefined, timeSec: number): number | null {
+  if (!track || track.length === 0) return null;
+  if (timeSec <= track[0].elapsedSec) return track[0].speedKmh;
+  if (timeSec >= track[track.length - 1].elapsedSec) return track[track.length - 1].speedKmh;
+  for (let i = 1; i < track.length; i++) {
+    if (timeSec <= track[i].elapsedSec) {
+      const prev = track[i - 1];
+      const next = track[i];
+      const t = (timeSec - prev.elapsedSec) / (next.elapsedSec - prev.elapsedSec);
+      return prev.speedKmh + t * (next.speedKmh - prev.speedKmh);
+    }
+  }
+  return null;
+}
+
 interface DriveEntry {
   meta: RecordingMeta;
   url: string;
   backUrl: string | null;
   source: "local" | "cloud";
   videoKey?: string;
+  speedTrack?: SpeedSample[];
 }
 
 function ReplayPage() {
@@ -73,7 +89,7 @@ function ReplayPage() {
           const rec = await getRecording(meta.id);
           const url = rec ? URL.createObjectURL(rec.videoBlob) : "";
           const backUrl = rec?.backVideoBlob ? URL.createObjectURL(rec.backVideoBlob) : null;
-          return { meta, url, backUrl, source: "local" as const };
+          return { meta, url, backUrl, source: "local" as const, speedTrack: rec?.speedTrack };
         }),
       );
 
@@ -268,13 +284,15 @@ function ReplayPage() {
                 </button>
               )}
 
-              {/* Score badge */}
+              {/* Speed / score badge (top-right) */}
               {selected && (
-                <div
-                  className="absolute top-3 right-3 z-20 rounded-full px-3 py-1 text-sm font-black backdrop-blur-sm"
-                  style={{ color, backgroundColor: "rgba(0,0,0,0.5)" }}
-                >
-                  {selected.meta.score}
+                <div className="absolute top-3 right-3 z-20 flex flex-col items-center rounded-xl bg-black/60 px-3 py-2 backdrop-blur-sm min-w-[56px]">
+                  <span className="font-mono text-xl font-black text-white leading-none">
+                    {selected.speedTrack?.length
+                      ? Math.round(speedAtTime(selected.speedTrack, currentTime) ?? 0)
+                      : "–"}
+                  </span>
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-white/50 mt-0.5">km/h</span>
                 </div>
               )}
             </div>
