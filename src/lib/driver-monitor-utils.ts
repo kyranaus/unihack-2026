@@ -30,8 +30,21 @@ export interface SmoothedMetrics {
 // Adjust these constants to calibrate sensitivity per user / camera setup.
 
 export const CONFIG = {
-  /** Eye Aspect Ratio below this = "eyes closed" */
+  /** Eye Aspect Ratio below this = "eyes closed" (static fallback before calibration) */
   EAR_THRESHOLD: 0.2,
+  /** Minimum valid samples before switching from static to dynamic threshold */
+  EAR_CALIBRATION_MIN_SAMPLES: 30,
+  /** Rolling buffer size for calibration samples */
+  EAR_CALIBRATION_BUFFER_SIZE: 90,
+  /** Dynamic threshold = baseline * this ratio */
+  EAR_CALIBRATION_RATIO: 0.65,
+  /** Minimum EAR to accept as a valid open-eye sample (filters blinks/no-face) */
+  EAR_CALIBRATION_FLOOR: 0.15,
+  /** Max yaw deviation from 1.0 to accept a calibration sample (head roughly forward) */
+  EAR_CALIBRATION_YAW_MAX: 0.35,
+  /** Pitch range to accept a calibration sample */
+  EAR_CALIBRATION_PITCH_MIN: 0.35,
+  EAR_CALIBRATION_PITCH_MAX: 1.3,
   /** EMA alpha for EAR (higher = less smoothing, more responsive) */
   EAR_SMOOTHING: 0.3,
   /** EMA alpha for head pose values */
@@ -125,6 +138,54 @@ export function ema(
   alpha: number,
 ): number {
   return alpha * current + (1 - alpha) * previous;
+}
+
+// ==================== EAR CALIBRATION ====================
+
+export interface EarCalibration {
+  buffer: number[];
+}
+
+export function createEarCalibration(): EarCalibration {
+  return { buffer: [] };
+}
+
+/**
+ * Adds an EAR sample to the calibration buffer if quality gates pass:
+ * - EAR above sanity floor (not a blink or no-face frame)
+ * - Head roughly forward (yaw ≈ 1.0, pitch in normal range)
+ * Maintains a rolling window, dropping the oldest sample when full.
+ */
+export function updateEarCalibration(
+  cal: EarCalibration,
+  ear: number,
+  yaw: number,
+  pitch: number,
+): void {
+  const earOk = ear > CONFIG.EAR_CALIBRATION_FLOOR;
+  const yawOk = Math.abs(yaw - 1.0) < CONFIG.EAR_CALIBRATION_YAW_MAX;
+  const pitchOk =
+    pitch >= CONFIG.EAR_CALIBRATION_PITCH_MIN &&
+    pitch <= CONFIG.EAR_CALIBRATION_PITCH_MAX;
+  if (!earOk || !yawOk || !pitchOk) return;
+
+  cal.buffer.push(ear);
+  if (cal.buffer.length > CONFIG.EAR_CALIBRATION_BUFFER_SIZE) {
+    cal.buffer.shift();
+  }
+}
+
+/**
+ * Returns the dynamic EAR threshold based on the calibration baseline.
+ * Falls back to the static CONFIG.EAR_THRESHOLD until enough samples collected.
+ */
+export function getEarThreshold(cal: EarCalibration): number {
+  if (cal.buffer.length < CONFIG.EAR_CALIBRATION_MIN_SAMPLES) {
+    return CONFIG.EAR_THRESHOLD;
+  }
+  const sorted = [...cal.buffer].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  return median * CONFIG.EAR_CALIBRATION_RATIO;
 }
 
 // ==================== DETECTION FUNCTIONS ====================

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { DriverState, SmoothedMetrics } from "#/lib/driver-monitor-utils";
+import type { DriverState, EarCalibration, SmoothedMetrics } from "#/lib/driver-monitor-utils";
 import { useDriverEventLogger } from "#/hooks/useDriverEventLogger";
 import {
   CONFIG,
@@ -8,9 +8,12 @@ import {
   STATE_DISPLAY,
   computeEAR,
   computeHeadPose,
+  createEarCalibration,
   drawOverlay,
   ema,
+  getEarThreshold,
   getHeadDirection,
+  updateEarCalibration,
 } from "#/lib/driver-monitor-utils";
 
 const EAR_OPEN_REF = 0.32;
@@ -50,6 +53,7 @@ export default function DriverMonitor() {
       lastFpsTime: performance.now(),
       lastRenderTime: 0,
       currentFps: 0,
+      cal: createEarCalibration() as EarCalibration,
     };
 
     async function init() {
@@ -152,7 +156,10 @@ export default function DriverMonitor() {
         s.smoothedYaw = ema(pose.yawRatio, s.smoothedYaw, CONFIG.HEAD_SMOOTHING);
         s.smoothedPitch = ema(pose.pitchRatio, s.smoothedPitch, CONFIG.HEAD_SMOOTHING);
 
-        if (s.smoothedEAR < CONFIG.EAR_THRESHOLD) {
+        updateEarCalibration(s.cal, ear.average, pose.yawRatio, pose.pitchRatio);
+        const earThreshold = getEarThreshold(s.cal);
+
+        if (s.smoothedEAR < earThreshold) {
           if (!s.eyesClosedSince) s.eyesClosedSince = now;
         } else {
           s.eyesClosedSince = null;
@@ -193,7 +200,7 @@ export default function DriverMonitor() {
       ctx.save();
       ctx.translate(-ox, -oy);
       ctx.scale(coverScale, coverScale);
-      drawOverlay(ctx, vw, vh, landmarks, s.smoothedEAR < CONFIG.EAR_THRESHOLD, true);
+      drawOverlay(ctx, vw, vh, landmarks, s.smoothedEAR < getEarThreshold(s.cal), true);
       ctx.restore();
 
       if (now - s.lastRenderTime > CONFIG.RENDER_INTERVAL_MS) {
