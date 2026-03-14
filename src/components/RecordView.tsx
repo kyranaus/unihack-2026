@@ -114,9 +114,7 @@ export default function RecordView() {
         frames,
         camera: "front",
       });
-      if (result.severity !== "info") {
-        addLog(`AI: [${result.severity}] ${result.summary}`);
-      }
+      addLog(`AI: [${result.severity}] ${result.summary}`);
     } catch (err) {
       addLog(`AI ERROR: ${err instanceof Error ? err.message : "analysis failed"}`);
     }

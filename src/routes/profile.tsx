@@ -1,11 +1,11 @@
 // src/routes/profile.tsx
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Moon, Sun, TrendingUp, Shield, Zap, Star, Award } from "lucide-react";
+import { Moon, Sun, TrendingUp, Shield, Zap, Star, Award, LogOut } from "lucide-react";
+import { authClient } from "#/lib/auth-client";
 
 export const Route = createFileRoute("/profile")({ component: ProfilePage });
 
-const USERNAME = "Stevenphanny";
 const DRIVER_SCORE = 85;
 const SCORE_TREND = +3;
 
@@ -43,6 +43,8 @@ function ScoreArc({ score }: { score: number }) {
 }
 
 function ProfilePage() {
+  const navigate = useNavigate();
+  const { data: session, isPending } = authClient.useSession();
   const [light, setLight] = useState(() =>
     document.documentElement.classList.contains("light")
   );
@@ -57,6 +59,20 @@ function ProfilePage() {
       html.classList.add("dark");
     }
   }, [light]);
+
+  if (isPending) return null;
+
+  if (!session?.user) {
+    navigate({ to: "/login" });
+    return null;
+  }
+
+  const USERNAME = session.user.name || "Driver";
+
+  const handleSignOut = async () => {
+    await authClient.signOut();
+    navigate({ to: "/login" });
+  };
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -194,6 +210,15 @@ function ProfilePage() {
 
           </div>
         </div>
+
+        {/* Sign out */}
+        <button
+          onClick={handleSignOut}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-card px-5 py-4 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10 active:scale-[0.98]"
+        >
+          <LogOut size={16} />
+          Sign out
+        </button>
 
         <p className="text-center text-[10px] text-muted-foreground/50 mt-2">
           BeeSafe v0.1.0 · Built at UniHack 2026

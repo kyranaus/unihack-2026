@@ -48,6 +48,7 @@ export function BackCamView() {
         sessionId,
         elapsedSec: elapsedRef.current,
         frames,
+        camera: "back",
       })
 
       setEvents((prev) =>
