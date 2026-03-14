@@ -402,6 +402,8 @@ export default function RecordView() {
     if (blob) {
       setPendingRec({ blob, duration, mimeType: getSupportedMimeType() || "video/webm", frontBlob, backBlob });
     }
+
+    setLiveLog([]);
   }, [frontRecorder, backRecorder, addLog, queryClient, streamUpload]);
 
   // Keep ref up-to-date for auto-stop timer
