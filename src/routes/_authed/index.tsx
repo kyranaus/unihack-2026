@@ -1,6 +1,8 @@
 // src/routes/_authed/index.tsx
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { motion } from "framer-motion"
+import { useEffect, useState } from "react"
+import QRCode from "qrcode"
 import { DriverScoreCircle } from "#/components/home/DriverScoreCircle"
 import { BrandLogo } from "#/components/home/BrandLogo"
 import { Smartphone, Video } from "lucide-react"
@@ -8,8 +10,7 @@ import { Smartphone, Video } from "lucide-react"
 export const Route = createFileRoute("/_authed/")({ component: App })
 
 const DRIVER_SCORE = 85
-const APP_URL = "https://kyranaus-unihack-2026.kyranmenezesaus.workers.dev/"
-const QR_SRC = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&color=000000&bgcolor=ffffff&data=${encodeURIComponent(APP_URL)}`
+const TARGET_URL = `https://beesafe.unihack.me/`
 
 // Brush-stroke reveal — each character pivots from the top like a loaded brush
 const brushContainer = {
@@ -50,6 +51,20 @@ function App() {
   const navigate = useNavigate()
   const { user } = Route.useRouteContext()
   const username = user.name || "Driver"
+  const [qrDataUrl, setQrDataUrl] = useState<string>("")
+
+  useEffect(() => {
+    QRCode.toDataURL(TARGET_URL, {
+      width: 180,
+      margin: 2,
+      color: {
+        dark: "#000000",
+        light: "#FFFFFF",
+      },
+    })
+      .then(setQrDataUrl)
+      .catch(console.error)
+  }, [])
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -59,12 +74,19 @@ function App() {
         <BrandLogo />
         <div className="flex flex-col items-center gap-4">
           {/* QR code */}
-          <img
-            src={QR_SRC}
-            alt="QR code to open BeeSafe on mobile"
-            width={180}
-            height={180}
-          />
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-lg">
+            {qrDataUrl ? (
+              <img
+                src={qrDataUrl}
+                alt="QR code to open BeeSafe on mobile"
+                width={180}
+                height={180}
+                className="rounded-xl"
+              />
+            ) : (
+              <div className="h-[180px] w-[180px] animate-pulse rounded-xl bg-muted" />
+            )}
+          </div>
 
           {/* Disclaimer */}
           <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2">

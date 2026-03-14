@@ -13,7 +13,10 @@ import {
   getPartUploadUrl,
   completeMultipartUpload,
   abortMultipartUpload,
+  getObjectBuffer,
 } from "#/server/s3"
+import { findPulloverSpots } from "#/server/overpass"
+import { storeHashOnChain, getHashFromChain, sha256Hex, BASE_SEPOLIA_EXPLORER } from "#/server/blockchain"
 
 const cameraEnum = z.enum(["front", "back"])
 
@@ -117,14 +120,14 @@ function computeScore(
     if (e.type === "driver_state") {
       const meta = e.metadata as Record<string, unknown>
       const state = meta?.state as string | undefined
-      if (state === "DROWSY") score -= 5
-      else if (state === "DISTRACTED") score -= 5
-      else if (state === "ASLEEP") score -= 15
+      if (state === "DROWSY") score -= 8
+      else if (state === "DISTRACTED") score -= 6
+      else if (state === "ASLEEP") score -= 25
     } else if (e.type === "road_analysis") {
-      if (e.severity === "warning") score -= 2
-      else if (e.severity === "critical") score -= 8
+      if (e.severity === "warning") score -= 3
+      else if (e.severity === "critical") score -= 12
     } else if (e.type === "crash") {
-      score -= 20
+      score -= 80
     }
   }
 
@@ -139,7 +142,11 @@ export const endSession = os
       orderBy: { elapsedSec: "asc" },
     })
 
-    const score = computeScore(events)
+    // Only assign a driver score when driver monitoring was active (at least one
+    // driver_state event logged). Road-only sessions have no face detection and
+    // should not receive a score.
+    const hasDriverEvents = events.some((e) => e.type === "driver_state")
+    const score = hasDriverEvents ? computeScore(events) : null
 
     let summary: string | null = null
     if (events.length > 0) {
@@ -150,7 +157,7 @@ export const endSession = os
           severity: e.severity,
           type: e.type,
         })),
-        score
+        score ?? 0
       )
     }
     const cameras = [...new Set(events.map((e) => e.camera))]
@@ -312,6 +319,7 @@ export const listDriveSessions = os.input(z.object({})).handler(async () => {
       summary: true,
       cameras: true,
       videoKey: true,
+      txHash: true,
     },
     take: 20,
   })
@@ -388,4 +396,66 @@ export const abortVideoUpload = os
   .handler(async ({ input }) => {
     await abortMultipartUpload(input.key, input.uploadId)
     return { success: true }
+  })
+
+export const findSafePullover = os
+  .input(
+    z.object({
+      latitude: z.number(),
+      longitude: z.number(),
+      radiusMeters: z.number().int().min(500).max(5000).optional(),
+    }),
+  )
+  .handler(async ({ input }) => {
+    const spots = await findPulloverSpots(
+      input.latitude,
+      input.longitude,
+      input.radiusMeters ?? 2000,
+      2,
+    )
+    return { spots }
+  })
+  
+export const storeVideoHash = os
+  .input(z.object({ sessionId: z.string() }))
+  .handler(async ({ input }) => {
+    try {
+      const session = await prisma.driveSession.findUniqueOrThrow({ where: { id: input.sessionId } })
+      if (!session.videoKey) throw new Error("No video uploaded for this session")
+
+      console.log(`[BeeSafe] Downloading S3 object to hash: ${session.videoKey}`)
+      const buf = await getObjectBuffer(session.videoKey)
+      const videoHash = sha256Hex(buf)
+      console.log(`[BeeSafe] SHA-256: ${videoHash.slice(0, 16)}... (${buf.length} bytes)`)
+
+      console.log(`[BeeSafe] Storing hash on Base Sepolia...`)
+      const txHash = await storeHashOnChain(videoHash)
+      console.log(`[BeeSafe] Blockchain tx: ${txHash}`)
+
+      await prisma.driveSession.update({
+        where: { id: input.sessionId },
+        data: { videoHash, txHash },
+      })
+      return { txHash, explorerUrl: `${BASE_SEPOLIA_EXPLORER}/${txHash}` }
+    } catch (err) {
+      console.error(`[BeeSafe] Blockchain ERROR:`, err)
+      throw err
+    }
+  })
+
+export const verifyVideoHash = os
+  .input(z.object({ sessionId: z.string() }))
+  .handler(async ({ input }) => {
+    const session = await prisma.driveSession.findUniqueOrThrow({
+      where: { id: input.sessionId },
+    })
+    if (!session.txHash || !session.videoKey) {
+      return { verified: false, reason: "no_blockchain_record" as const }
+    }
+    const buf = await getObjectBuffer(session.videoKey)
+    const currentHash = sha256Hex(buf)
+    const chainHash = await getHashFromChain(session.txHash)
+    const verified = chainHash === currentHash
+    console.log(`[BeeSafe] Verify: chain=${chainHash.slice(0, 16)} current=${currentHash.slice(0, 16)} match=${verified}`)
+    return { verified, txHash: session.txHash, explorerUrl: `${BASE_SEPOLIA_EXPLORER}/${session.txHash}` }
   })

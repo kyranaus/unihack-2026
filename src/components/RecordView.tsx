@@ -1,7 +1,6 @@
 // src/components/RecordView.tsx
 import { useEffect, useRef, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import type { DriverState, EarCalibration, SmoothedMetrics } from "#/lib/driver-monitor-utils";
 import {
@@ -28,6 +27,7 @@ import { useCrashDetection, requestMotionPermission } from "#/hooks/use-crash-de
 import { useSpeed } from "#/hooks/use-speed";
 import { useCameraDevices } from "#/hooks/use-camera-devices";
 import { usePollyTTS } from "#/lib/use-polly-tts";
+import { EmergencyOverlay, type CrashLocation } from "#/components/emergency/EmergencyOverlay";
 import { driveSessionStore } from "#/hooks/useDriveSession";
 import { client } from "#/server/orpc/client";
 import { getSupportedMimeType } from "#/lib/media-utils";
@@ -36,6 +36,8 @@ import { CameraPicker } from "#/components/driver-monitor/CameraPicker";
 import { useStreamingUpload } from "#/hooks/use-streaming-upload";
 import type { PendingRecording } from "#/hooks/useRecording";
 import { DriverFeedback, type SessionData } from "#/components/DriverFeedback";
+import { usePulloverSuggestion } from "#/hooks/usePulloverSuggestion";
+import { PulloverSuggestion } from "#/components/PulloverSuggestion";
 
 const MAX_RECORD_SECS = 5 * 60;
 const ALARM_SRC = "/denielcz-speed-limit-violation-alert-463066.mp3";
@@ -62,7 +64,6 @@ export default function RecordView() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const alarmRef = useRef<HTMLAudioElement | null>(null);
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // Camera mode: dual (Android/desktop) vs single (iOS / fallback)
@@ -114,7 +115,12 @@ export default function RecordView() {
   const [showReport, setShowReport] = useState(false);
   const [ending, setEnding] = useState(false);
   const [sessionScore, setSessionScore] = useState<number | null>(null);
+  const [lastTxHash, setLastTxHash] = useState<string | null>(null);
   const [liveLog, setLiveLog] = useState<string[]>([]);
+
+  // Emergency overlay
+  const [emergencyTriggered, setEmergencyTriggered] = useState(false);
+  const [emergencyLocation, setEmergencyLocation] = useState<CrashLocation | null>(null);
 
   // debugAccel
   const [debugAccel, setDebugAccel] = useState(false);
@@ -170,6 +176,12 @@ export default function RecordView() {
   // GPS speed and location for crash detection context
   const { speedKmh, latitude, longitude, accuracy, heading } = useSpeed();
 
+  // Pull-over suggestion after repeated drowsiness
+  const handlePulloverShow = useCallback(() => {
+    speak("Warning. You've dozed off multiple times. Please pull over at the next safe spot.").catch(() => {});
+  }, [speak]);
+  const pullover = usePulloverSuggestion(driverState, latitude, longitude, isRecording, handlePulloverShow);
+
   // Keep ref in sync for use inside timer callback
   useEffect(() => { speedKmhRef.current = speedKmh; }, [speedKmh]);
 
@@ -177,16 +189,9 @@ export default function RecordView() {
   const handleCrash = useCallback(async ({ g }: { g: number; speedKmh: number | null }) => {
     addLog(`CRASH: ${g.toFixed(1)}g impact detected`);
     const sessionId = sessionIdRef.current;
-    
-    // Capture location at time of crash
-    const crashLocation = {
-      latitude,
-      longitude,
-      accuracy,
-      heading,
-      speedKmh,
-    };
-    
+
+    const loc: CrashLocation = { latitude, longitude, accuracy, heading, speedKmh };
+
     if (sessionId) {
       await client.logDriverEvent({
         sessionId,
@@ -195,21 +200,15 @@ export default function RecordView() {
         summary: `Collision detected - ${g.toFixed(1)}g impact`,
         severity: "critical",
         camera: "front",
-        metadata: { gForce: g, location: crashLocation },
+        metadata: { gForce: g, location: loc },
       }).catch(console.error);
     }
-    
-    // Store crash location in session storage for emergency page
-    try {
-      window.sessionStorage.setItem("dashcam.crashLocation", JSON.stringify(crashLocation));
-    } catch {
-      // ignore storage errors
-    }
-    
-    navigate({ to: "/emergency" as any });
-  }, [addLog, navigate, latitude, longitude, accuracy, heading, speedKmh]);
 
-  const crash = useCrashDetection({ speedKmh, onCrash: handleCrash });
+    setEmergencyLocation(loc);
+    setEmergencyTriggered(true);
+  }, [addLog, latitude, longitude, accuracy, heading, speedKmh]);
+
+  const crash = useCrashDetection({ speedKmh, onCrash: handleCrash, gThreshold: 1.0 });
 
   // Track accel samples for debug sparklines
   useEffect(() => {
@@ -220,7 +219,7 @@ export default function RecordView() {
     ]);
   }, [debugAccel, crash.currentG, crash.ax, crash.ay, crash.az]);
 
-  // TTS alerts for driver warnings
+  // TTS alerts for driver warnings (pull-over TTS is handled by the onShow callback)
   useEffect(() => {
     if (!isRecording || driverState === "ALERT" || driverState === "NO_FACE") return;
     const now = Date.now();
@@ -375,6 +374,7 @@ export default function RecordView() {
   const handleStopRecording = useCallback(async () => {
     wantRecordingRef.current = false;
     const duration = frontRecorder.duration || backRecorder.duration || 0;
+    const speedTrack = [...speedTrackRef.current]; // Capture before recorders stop (which clears the ref via useEffect)
 
     // Stop composite recorder
     drawLoopActiveRef.current = false;
@@ -401,6 +401,17 @@ export default function RecordView() {
       addLog("Finishing cloud upload...");
       const uploaded = await streamUpload.finish();
       addLog(uploaded ? "Cloud upload complete" : "Cloud upload skipped");
+
+      if (uploaded) {
+        try {
+          addLog("Hashing video & storing on blockchain...");
+          const { txHash } = await client.storeVideoHash({ sessionId });
+          setLastTxHash(txHash);
+          addLog(`Blockchain tx: ${txHash.slice(0, 16)}...`);
+        } catch (err) {
+          addLog(`Blockchain: ${err instanceof Error ? err.message : err}`);
+        }
+      }
 
       addLog("Ending session, generating summary...");
       try {
@@ -439,10 +450,8 @@ export default function RecordView() {
 
     const blob = compositeBlob ?? backBlob ?? frontBlob;
     if (blob) {
-      setPendingRec({ blob, duration, mimeType: getSupportedMimeType() || "video/webm", frontBlob, backBlob, speedTrack: [...speedTrackRef.current] });
+      setPendingRec({ blob, duration, mimeType: getSupportedMimeType() || "video/webm", frontBlob, backBlob, speedTrack });
     }
-
-    setLiveLog([]);
   }, [frontRecorder, backRecorder, addLog, queryClient, streamUpload]);
 
   // Keep ref up-to-date for auto-stop timer
@@ -995,9 +1004,22 @@ export default function RecordView() {
           pending={pendingRec}
           sessionId={lastSessionIdRef.current}
           score={sessionScore}
-          onDone={() => { setPendingRec(null); setSessionScore(null); lastSessionIdRef.current = null; }}
+          txHash={lastTxHash}
+          onDone={() => { setPendingRec(null); setSessionScore(null); setLastTxHash(null); setLiveLog([]); lastSessionIdRef.current = null; }}
         />
       )}
+
+      <PulloverSuggestion
+        spots={pullover.spots}
+        visible={pullover.visible}
+        onDismiss={pullover.dismiss}
+      />
+
+      <EmergencyOverlay
+        triggered={emergencyTriggered}
+        crashLocation={emergencyLocation}
+        onDismiss={() => setEmergencyTriggered(false)}
+      />
     </div>
   );
 }

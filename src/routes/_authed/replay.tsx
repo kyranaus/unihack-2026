@@ -2,7 +2,9 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { z } from "zod";
-import { Play, Pause, BarChart2, Clock, Download, Zap } from "lucide-react";
+import { Play, Pause, BarChart2, Clock, Download, Zap, Link2, ShieldCheck, ShieldX, Loader2, ExternalLink, Cloud } from "lucide-react";
+
+const EXPLORER_URL = "https://sepolia.basescan.org/tx";
 import { DriverFeedback } from "#/components/DriverFeedback";
 import type { SessionData } from "#/components/DriverFeedback";
 import { listRecordings, getRecording } from "#/lib/replay-store";
@@ -57,6 +59,7 @@ interface DriveEntry {
   source: "local" | "cloud";
   videoKey?: string;
   speedTrack?: SpeedSample[];
+  txHash?: string | null;
 }
 
 function ReplayPage() {
@@ -72,6 +75,7 @@ function ReplayPage() {
   const [showReport, setShowReport] = useState(false);
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
+  const [verifyState, setVerifyState] = useState<"idle" | "hashing" | "checking" | "pass" | "fail">("idle");
   const frontVideoRef = useRef<HTMLVideoElement>(null);
   const backVideoRef = useRef<HTMLVideoElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -111,6 +115,7 @@ function ReplayPage() {
           backUrl: null,
           source: "cloud" as const,
           videoKey: s.videoKey!,
+          txHash: s.txHash,
         }));
 
       const all = [...localEntries, ...cloudEntries].sort(
@@ -403,7 +408,14 @@ function ReplayPage() {
                         <p className="text-sm font-semibold">
                           {relDate(d.meta.timestamp)}
                           {d.source === "cloud" && (
-                            <span className="ml-1.5 text-[9px] font-semibold uppercase tracking-wide text-primary">Cloud</span>
+                            <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary">
+                            <Cloud size={9} /> Cloud
+                          </span>
+                          )}
+                          {d.txHash && (
+                            <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-400">
+                              <Link2 size={9} /> On-chain
+                            </span>
                           )}
                         </p>
                         <p className="text-xs text-muted-foreground">{fmtTime(d.meta.timestamp)} · {fmt(d.meta.duration)}</p>
@@ -428,7 +440,7 @@ function ReplayPage() {
       {showDownloadSheet && selected && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={() => setShowDownloadSheet(false)}
+          onClick={() => { setShowDownloadSheet(false); setVerifyState("idle"); }}
         >
           <div
             className="w-full max-w-sm mx-4 rounded-2xl bg-zinc-900 border border-white/10 px-6 py-5"
@@ -477,9 +489,50 @@ function ReplayPage() {
                 </div>
               )}
             </div>
+
+            {/* Blockchain verification */}
+            {selected.txHash && (
+              <div className="mt-3 rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Link2 size={13} className="text-emerald-400" />
+                  <p className="text-[11px] font-semibold text-emerald-400">Blockchain integrity proof</p>
+                </div>
+                <a
+                  href={`${EXPLORER_URL}/${selected.txHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mb-3 flex items-center gap-1.5 text-[10px] font-mono text-white/40 hover:text-emerald-400/80 transition"
+                >
+                  <span className="truncate">{selected.txHash}</span>
+                  <ExternalLink size={10} className="shrink-0" />
+                </a>
+                <button
+                  type="button"
+                  disabled={verifyState === "checking"}
+                  onClick={async () => {
+                    const sid = (selected.meta as any).sessionId as string | undefined;
+                    if (!sid) return;
+                    try {
+                      setVerifyState("checking");
+                      const result = await client.verifyVideoHash({ sessionId: sid });
+                      setVerifyState(result.verified ? "pass" : "fail");
+                    } catch {
+                      setVerifyState("fail");
+                    }
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-900/40 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-900/60 disabled:opacity-50"
+                >
+                  {verifyState === "checking" && <><Loader2 size={13} className="animate-spin" /> Verifying on-chain…</>}
+                  {verifyState === "pass" && <><ShieldCheck size={13} /> Verified — unmodified</>}
+                  {verifyState === "fail" && <><ShieldX size={13} className="text-red-400" /> <span className="text-red-300">Verification failed</span></>}
+                  {verifyState === "idle" && <><ShieldCheck size={13} /> Verify integrity</>}
+                </button>
+              </div>
+            )}
+
             <button
               type="button"
-              onClick={() => setShowDownloadSheet(false)}
+              onClick={() => { setShowDownloadSheet(false); setVerifyState("idle"); }}
               className="mt-4 w-full rounded-xl bg-white/10 py-3 text-sm font-semibold text-white/70"
             >
               Cancel
