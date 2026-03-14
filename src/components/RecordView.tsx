@@ -78,6 +78,12 @@ export default function RecordView() {
   const backRecorder = useMediaRecorder(backCamera.stream);
   const isRecording = frontRecorder.isRecording;
 
+  // Composite canvas recording refs
+  const compositeRecorderRef = useRef<MediaRecorder | null>(null);
+  const compositeChunksRef = useRef<Blob[]>([]);
+  const drawLoopActiveRef = useRef(false);
+  const compositeMainCamRef = useRef<"front" | "back">("back");
+
   // State
   const [pendingRec, setPendingRec] = useState<PendingRecording | null>(null);
   const [driverState, setDriverState] = useState<DriverState>("NO_FACE");
@@ -107,6 +113,11 @@ export default function RecordView() {
     const ts = new Date().toLocaleTimeString("en-AU", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
     setLiveLog((prev) => [...prev.slice(-19), `[${ts}] ${msg}`]);
   }, []);
+
+  // Keep composite main cam in sync with active camera toggle
+  useEffect(() => {
+    compositeMainCamRef.current = activeCamera;
+  }, [activeCamera]);
 
   // Detect iOS + debugAccel URL param
   useEffect(() => {
@@ -216,6 +227,78 @@ export default function RecordView() {
     }
     frontRecorder.startRecording();
     backRecorder.startRecording();
+
+    // Composite canvas: front (mirrored) left | back right
+    const canvas = document.createElement("canvas");
+    canvas.width = 1280;
+    canvas.height = 720;
+    const ctx = canvas.getContext("2d");
+    compositeChunksRef.current = [];
+    drawLoopActiveRef.current = true;
+
+    const PIP_W = 320, PIP_H = 180, PIP_M = 16;
+
+    const drawComposite = () => {
+      if (!drawLoopActiveRef.current || !ctx) return;
+      const isBackMain = compositeMainCamRef.current === "back";
+      const mainVid = isBackMain ? backCamera.videoRef.current : videoRef.current;
+      const pipVid = isBackMain ? videoRef.current : backCamera.videoRef.current;
+
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, 1280, 720);
+
+      // Main camera fills canvas
+      if (mainVid && mainVid.readyState >= 2) {
+        if (!isBackMain) {
+          // front is main — mirror it
+          ctx.save();
+          ctx.translate(1280, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(mainVid, 0, 0, 1280, 720);
+          ctx.restore();
+        } else {
+          ctx.drawImage(mainVid, 0, 0, 1280, 720);
+        }
+      }
+
+      // PiP in top-left corner
+      const px = PIP_M;
+      const py = PIP_M;
+      if (pipVid && pipVid.readyState >= 2) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(px, py, PIP_W, PIP_H, 8);
+        ctx.clip();
+        if (isBackMain) {
+          // PiP is front — mirror it
+          ctx.translate(px + PIP_W, py);
+          ctx.scale(-1, 1);
+          ctx.drawImage(pipVid, 0, 0, PIP_W, PIP_H);
+        } else {
+          ctx.drawImage(pipVid, px, py, PIP_W, PIP_H);
+        }
+        ctx.restore();
+        // PiP border
+        ctx.strokeStyle = "rgba(255,255,255,0.6)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(px, py, PIP_W, PIP_H, 8);
+        ctx.stroke();
+      }
+
+      requestAnimationFrame(drawComposite);
+    };
+    drawComposite();
+
+    const mimeType = getSupportedMimeType();
+    const compositeStream = canvas.captureStream(30);
+    const compositeRecorder = new MediaRecorder(compositeStream, mimeType ? { mimeType } : undefined);
+    compositeRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) compositeChunksRef.current.push(e.data);
+    };
+    compositeRecorder.start(1000);
+    compositeRecorderRef.current = compositeRecorder;
+
     addLog("Starting session...");
     client.startSession({}).then(({ sessionId }) => {
       sessionIdRef.current = sessionId;
@@ -226,7 +309,21 @@ export default function RecordView() {
 
   const handleStopRecording = useCallback(async () => {
     const duration = frontRecorder.duration || backRecorder.duration || 0;
-    const [frontBlob, backBlob] = await Promise.all([
+
+    // Stop composite recorder
+    drawLoopActiveRef.current = false;
+    const stopComposite = new Promise<Blob | null>((resolve) => {
+      const recorder = compositeRecorderRef.current;
+      if (!recorder || recorder.state === "inactive") { resolve(null); return; }
+      recorder.onstop = () => {
+        resolve(new Blob(compositeChunksRef.current, { type: recorder.mimeType || "video/webm" }));
+        compositeRecorderRef.current = null;
+      };
+      recorder.stop();
+    });
+
+    const [compositeBlob, frontBlob, backBlob] = await Promise.all([
+      stopComposite,
       frontRecorder.stopRecording(),
       backRecorder.stopRecording(),
     ]);
@@ -270,9 +367,9 @@ export default function RecordView() {
       }
     }
 
-    const blob = backBlob ?? frontBlob;
+    const blob = compositeBlob ?? backBlob ?? frontBlob;
     if (blob) {
-      setPendingRec({ blob, duration, mimeType: getSupportedMimeType() || "video/webm" });
+      setPendingRec({ blob, duration, mimeType: getSupportedMimeType() || "video/webm", frontBlob, backBlob });
     }
   }, [frontRecorder, backRecorder, addLog, queryClient]);
 
@@ -554,7 +651,7 @@ export default function RecordView() {
 
         {/* REC indicator */}
         {isRecording && (
-          <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm">
+          <div className="absolute left-1/2 top-3 z-10 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm">
             <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
             <span className="font-mono text-xs font-bold text-white">REC {recMins}:{recSecs}</span>
           </div>
