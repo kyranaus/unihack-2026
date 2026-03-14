@@ -6,6 +6,8 @@ export interface PendingRecording {
   blob: Blob;
   duration: number;
   mimeType: string;
+  frontBlob?: Blob | null;
+  backBlob?: Blob | null;
 }
 
 function getSupportedMimeType(): string {
