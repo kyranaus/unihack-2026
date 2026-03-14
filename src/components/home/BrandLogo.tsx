@@ -33,7 +33,7 @@ export function BrandLogo() {
           <motion.span
             key={`bee-${i}`}
             variants={letterVariants}
-            className="text-6xl font-black text-foreground"
+            className="text-7xl font-bold tracking-tight text-foreground"
           >
             {char}
           </motion.span>
@@ -42,7 +42,7 @@ export function BrandLogo() {
           <motion.span
             key={`safe-${i}`}
             variants={letterVariants}
-            className="text-6xl font-black"
+            className="text-7xl font-bold tracking-tight"
             style={{ color: "var(--dashcam-yellow)", textShadow: "0 0 32px rgba(234,179,8,0.4)" }}
           >
             {char}

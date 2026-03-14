@@ -34,7 +34,7 @@ function BrushName({ name }: { name: string }) {
       variants={brushContainer}
       initial="hidden"
       animate="show"
-      className="inline-flex font-brand text-2xl font-black text-foreground"
+      className="inline-flex font-brand text-3xl font-semibold tracking-wide text-foreground"
       aria-label={name}
     >
       {name.split("").map((char, i) => (
@@ -72,7 +72,7 @@ function BeeAnimations() {
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
       {/* Big bee — left to right with smooth sine-wave up/down */}
-      <motion.div
+      {/* <motion.div
         className="absolute"
         style={{ top: "35%", left: 0 }}
         animate={{
@@ -91,7 +91,7 @@ function BeeAnimations() {
         }}
       >
         <DotLottieReact src="/flyingBee.lottie" autoplay loop style={{ width: 130, height: 130 }} />
-      </motion.div>
+      </motion.div> */}
 
       {/* Bottom-left particle bees */}
       {PARTICLE_BEES_LEFT.map((b, i) => (
@@ -164,15 +164,13 @@ function App() {
       {/* ── Mobile app (hidden on desktop) ── */}
       <div className="md:hidden relative mx-auto min-h-screen max-w-md px-4 pb-28 z-10">
 
-        {/* Title block — sits at 20% from the top, adapts to any screen height */}
+        {/* Title block — centred, nudged above midpoint */}
         <div
-          className="flex flex-col items-center gap-4"
-          style={{ paddingTop: "12vh" }}
+          className="absolute inset-x-0 flex flex-col items-center gap-4"
+          style={{ top: "38%" }}
         >
-          <BrandLogo />
-
-          {/* Welcome greeting below the logo */}
-          <div className="flex flex-col items-center gap-1 mt-10">
+          {/* Welcome greeting above the logo */}
+          <div className="flex flex-col items-center gap-1">
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -181,11 +179,13 @@ function App() {
             >
               Welcome back
             </motion.p>
-            
-            <div className="mt-2">
+
+            <div className="mb-10">
               <BrushName name={username} />
             </div>
           </div>
+
+          <BrandLogo />
 
         </div>
 
@@ -198,7 +198,7 @@ function App() {
         >
           <button
             onClick={() => navigate({ to: "/driver-monitor" })}
-            className="flex items-center gap-2 rounded-full bg-primary px-8 py-3 font-brand text-sm font-bold text-primary-foreground shadow-lg shadow-primary/30 active:scale-95 transition-transform"
+            className="flex items-center gap-2 rounded-full bg-primary px-8 py-3 text-xs font-medium tracking-widest uppercase text-primary-foreground shadow-lg shadow-primary/20 active:scale-95 transition-transform"
           >
             <Video size={16} strokeWidth={2.5} />
             Start Recording
