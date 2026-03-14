@@ -205,7 +205,11 @@ export default function RecordView() {
   }, [isRecording]);
 
   // Recording handlers
-  const handleStartRecording = useCallback(() => {
+  const handleStartRecording = useCallback(async () => {
+    // Request iOS motion permission on first user gesture (required for crash detection on iOS)
+    if (isIOS) {
+      await requestMotionPermission().catch(() => {});
+    }
     frontRecorder.startRecording();
     backRecorder.startRecording();
     addLog("Starting session...");
@@ -214,7 +218,7 @@ export default function RecordView() {
       driveSessionStore.setState(() => ({ sessionId, startedAt: Date.now() }));
       addLog(`Session started: ${sessionId.slice(0, 8)}...`);
     }).catch((err) => addLog(`Session start FAILED: ${err}`));
-  }, [frontRecorder, backRecorder, addLog]);
+  }, [frontRecorder, backRecorder, addLog, isIOS]);
 
   const handleStopRecording = useCallback(async () => {
     const duration = frontRecorder.duration || backRecorder.duration || 0;
@@ -443,10 +447,17 @@ export default function RecordView() {
     <div className="flex h-dvh flex-col bg-black">
       {/* Title */}
       <div
-        className="flex flex-none items-center justify-center pb-2"
+        className="flex flex-none items-center justify-between px-4 pb-2"
         style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
       >
+        <div className="w-16" />
         <span className="text-base font-bold tracking-wide text-white">Record</span>
+        <div className="w-16 text-right">
+          <span className="font-mono text-sm font-bold text-white">
+            {speedKmh != null ? Math.round(speedKmh) : "–"}
+          </span>
+          <span className="text-[10px] text-white/50"> km/h</span>
+        </div>
       </div>
 
       {/* Video window */}
@@ -522,14 +533,22 @@ export default function RecordView() {
 
         {/* Metrics strip */}
         {!loading && (
-          <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-4 bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-8 pr-16">
-            <span className="text-[11px] font-semibold text-white/70">Eyes <span className="text-white">{eyePct}%</span></span>
-            <span className="text-[11px] font-semibold text-white/70">State <span style={{ color: display.color }}>{display.label}</span></span>
-            <span className="text-[11px] font-semibold text-white/70">Head <span className="text-white">{headDir}</span></span>
+          <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-col bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-8 pr-16">
+            <div className="flex items-center gap-4">
+              <span className="text-[11px] font-semibold text-white/70">Eyes <span className="text-white">{eyePct}%</span></span>
+              <span className="text-[11px] font-semibold text-white/70">State <span style={{ color: display.color }}>{display.label}</span></span>
+              <span className="text-[11px] font-semibold text-white/70">Head <span className="text-white">{headDir}</span></span>
+            </div>
+            <div className="mt-0.5 flex items-center gap-4">
+              <span className="text-[11px] font-semibold text-white/70">Speed <span className="text-white">{speedKmh != null ? `${Math.round(speedKmh)} km/h` : "–"}</span></span>
+              {crash.currentG != null && (
+                <span className="text-[11px] font-semibold text-white/70">G <span className="text-white">{crash.currentG.toFixed(2)}g</span></span>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Camera picker (only shown when 2+ devices detected) */}
+        {/* Camera picker */}
         {!loading && (
           <CameraPicker
             devices={devices}
