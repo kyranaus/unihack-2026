@@ -91,3 +91,12 @@ export async function abortMultipartUpload(key: string, uploadId: string) {
     new AbortMultipartUploadCommand({ Bucket: bucket, Key: key, UploadId: uploadId }),
   ).catch(() => {})
 }
+
+export async function getObjectBuffer(key: string): Promise<Buffer> {
+  const { bucket } = getConfig()
+  const { Body } = await getS3().send(
+    new GetObjectCommand({ Bucket: bucket, Key: key }),
+  )
+  if (!Body) throw new Error(`Empty S3 object: ${key}`)
+  return Buffer.from(await Body.transformToByteArray())
+}

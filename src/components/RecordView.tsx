@@ -52,6 +52,8 @@ import type { PendingRecording } from "#/hooks/useRecording";
 import { DriverFeedback, type SessionData } from "#/components/DriverFeedback";
 import { useTrafficDetection } from "#/hooks/use-traffic-detection";
 import { TrafficOverlay } from "#/components/record/TrafficOverlay";
+import { usePulloverSuggestion } from "#/hooks/usePulloverSuggestion";
+import { PulloverSuggestion } from "#/components/PulloverSuggestion";
 
 const MAX_RECORD_SECS = 5 * 60;
 const ALARM_SRC = "/denielcz-speed-limit-violation-alert-463066.mp3";
@@ -233,6 +235,20 @@ export default function RecordView() {
 
 	// GPS speed and location for crash detection context
 	const { speedKmh, latitude, longitude, accuracy, heading } = useSpeed();
+
+	// Pullover suggestion when driver is drowsy
+	const handlePulloverShow = useCallback(() => {
+		speak(
+			"Warning. You've dozed off multiple times. Please pull over at the next safe spot.",
+		).catch(() => {});
+	}, [speak]);
+	const pullover = usePulloverSuggestion(
+		driverState,
+		latitude,
+		longitude,
+		isRecording,
+		handlePulloverShow,
+	);
 
 	// Keep ref in sync for use inside timer callback
 	useEffect(() => {
@@ -1365,6 +1381,12 @@ export default function RecordView() {
 					}}
 				/>
 			)}
+
+			<PulloverSuggestion
+				spots={pullover.spots}
+				visible={pullover.visible}
+				onDismiss={pullover.dismiss}
+			/>
 
 			<EmergencyOverlay
 				triggered={emergencyTriggered}
