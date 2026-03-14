@@ -1,4 +1,5 @@
-import { X, Camera, Eye, AlertTriangle, Car } from "lucide-react";
+import { useState } from "react";
+import { X, Camera, Eye, AlertTriangle, Car, ChevronDown, ChevronUp } from "lucide-react";
 
 export type SessionEvent = {
   id: string;
@@ -141,30 +142,19 @@ export function DriverFeedback({ sessionData, onClose, isOpen }: Props) {
 
           {/* AI Summary */}
           {sessionData.summary && (
-            <div className="mt-5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">AI Summary</p>
-              <p className="text-sm leading-relaxed text-zinc-300">{sessionData.summary}</p>
+            <div className="mt-6 space-y-5">
+              <SummaryDisplay summary={sessionData.summary} />
             </div>
           )}
 
           {/* Front camera events */}
           {frontEvents.length > 0 && (
-            <div className="mt-5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-                Front Camera ({frontEvents.length})
-              </p>
-              <EventList events={frontEvents} />
-            </div>
+            <CameraLogSection title="Front Camera" count={frontEvents.length} events={frontEvents} />
           )}
 
           {/* Back camera events */}
           {backEvents.length > 0 && (
-            <div className="mt-5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-                Back Camera ({backEvents.length})
-              </p>
-              <EventList events={backEvents} />
-            </div>
+            <CameraLogSection title="Back Camera" count={backEvents.length} events={backEvents} />
           )}
         </div>
 
@@ -196,6 +186,64 @@ function EventList({ events }: { events: SessionEvent[] }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function CameraLogSection({ title, count, events }: { title: string; count: number; events: SessionEvent[] }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="mt-5">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex w-full items-center justify-between transition hover:opacity-80"
+      >
+        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">
+          {title} ({count})
+        </p>
+        <div className="mb-2 text-zinc-500">
+          {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </div>
+      </button>
+      {isOpen && <EventList events={events} />}
+    </div>
+  );
+}
+
+function SummaryDisplay({ summary }: { summary: string }) {
+  try {
+    const parsed = JSON.parse(summary);
+    if (parsed.aiSummary && parsed.generalFeedback) {
+      return (
+        <div className="space-y-5">
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">AI Summary</p>
+            <ul className="list-inside list-disc space-y-1 text-sm leading-relaxed text-zinc-300">
+              {parsed.aiSummary.map((item: string, i: number) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">General Feedback</p>
+            <ul className="list-inside list-disc space-y-1 text-sm leading-relaxed text-zinc-300">
+              {parsed.generalFeedback.map((item: string, i: number) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      );
+    }
+  } catch (e) {
+    // Cannot parse as JSON, fallback to plain text below
+  }
+
+  return (
+    <div>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">AI Summary</p>
+      <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">{summary}</p>
     </div>
   );
 }

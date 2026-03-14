@@ -84,14 +84,22 @@ export async function summariseDrive(
     messages: [
       {
         role: "system",
-        content: "You summarise a driving session from event logs. Write 2-3 sentences covering: overall safety, notable incidents, and a recommendation. Be concise and constructive.",
+        content: "You summarise a driving session from event logs. Respond ONLY in valid JSON with two arrays: 'aiSummary' (3-4 very short event bullets, a few words max) and 'generalFeedback' (2-3 short bullets on common driver traits). Example: { \"aiSummary\": [\"Hard braking\", \"Phone usage at 1:20\"], \"generalFeedback\": [\"Often distracted\", \"Good lane discipline\"] }",
       },
       {
         role: "user",
-        content: `Here are the events from this drive:\n\n${eventList}\n\nSummarise this drive.`,
+        content: `Here are the events from this drive:\n\n${eventList}\n\nSummarise this drive. Ensure response is valid JSON.`,
       },
     ],
   })
 
-  return response.choices[0]?.message?.content ?? "Unable to generate summary."
+  const text = response.choices[0]?.message?.content ?? "Unable to generate summary."
+  try {
+    const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim()
+    JSON.parse(cleaned) // Validate JSON
+    return cleaned
+  } catch {
+    // If fallback, return hardcoded text or the raw string
+    return text
+  }
 }
