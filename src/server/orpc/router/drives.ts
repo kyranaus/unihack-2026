@@ -228,6 +228,45 @@ export const getProfileStats = os.input(z.object({})).handler(async () => {
   }
 })
 
+export const getLeaderboard = os.input(z.object({})).handler(async () => {
+  const sessions = await prisma.driveSession.findMany({
+    where: { endedAt: { not: null }, score: { not: null } },
+    select: {
+      userId: true,
+      startedAt: true,
+      endedAt: true,
+      score: true,
+      user: { select: { name: true } },
+    },
+  })
+
+  // Only sessions longer than 30 seconds
+  const validSessions = sessions.filter((s) => {
+    if (!s.endedAt) return false
+    return s.endedAt.getTime() - s.startedAt.getTime() >= 30_000
+  })
+
+  const userMap = new Map<string, { name: string; scores: number[] }>()
+  for (const s of validSessions) {
+    const key = s.userId ?? "anonymous"
+    if (!userMap.has(key)) {
+      userMap.set(key, { name: s.user?.name ?? "Anonymous", scores: [] })
+    }
+    userMap.get(key)!.scores.push(s.score!)
+  }
+
+  const entries = Array.from(userMap.entries())
+    .map(([userId, { name, scores }]) => ({
+      userId,
+      name,
+      avgScore: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length),
+      totalDrives: scores.length,
+    }))
+    .sort((a, b) => b.avgScore - a.avgScore)
+
+  return { entries }
+})
+
 export const getVideoUploadUrl = os
   .input(
     z.object({

@@ -803,7 +803,7 @@ export default function RecordView() {
 
         {/* Driver monitoring paused banner — single-cam mode, back camera active */}
         {!loading && isSingleCam && activeCamera === "back" && (
-          <div className="absolute left-1/2 top-4 z-10 -translate-x-1/2">
+          <div className="absolute left-4 top-4 z-10">
             <div className="rounded-full bg-black/60 px-3 py-1.5 text-[10px] font-medium text-white/60 backdrop-blur-sm">
               Driver monitoring paused
             </div>

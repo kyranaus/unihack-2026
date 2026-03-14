@@ -1,23 +1,25 @@
 // src/components/Navbar.tsx
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { Home, Video, PlaySquare, User } from "lucide-react";
+import { Home, Video, PlaySquare, User, Trophy } from "lucide-react";
 import { InteractiveMenu, type InteractiveMenuItem } from "./ui/modern-mobile-menu";
 
 const navItems: InteractiveMenuItem[] = [
-  { label: "home",    icon: Home },
-  { label: "record",  icon: Video },
-  { label: "replays", icon: PlaySquare },
-  { label: "profile", icon: User },
+  { label: "home",        icon: Home },
+  { label: "record",      icon: Video },
+  { label: "replays",     icon: PlaySquare },
+  { label: "rank", icon: Trophy },
+  { label: "profile",     icon: User },
 ];
 
 const desktopItems = [
-  { label: "Home",    icon: Home,       route: "/" },
-  { label: "Record",  icon: Video,      route: "/driver-monitor" },
-  { label: "Replays", icon: PlaySquare, route: "/replay" },
-  { label: "Profile", icon: User,       route: "/profile" },
+  { label: "Home",        icon: Home,       route: "/" },
+  { label: "Record",      icon: Video,      route: "/driver-monitor" },
+  { label: "Replays",     icon: PlaySquare, route: "/replay" },
+  { label: "Rank",        icon: Trophy,     route: "/leaderboard" },
+  { label: "Profile",     icon: User,       route: "/profile" },
 ] as const;
 
-const routes = ["/", "/driver-monitor", "/replay", "/profile"] as const;
+const routes = ["/", "/driver-monitor", "/replay", "/leaderboard", "/profile"] as const;
 
 export function Navbar() {
   const navigate = useNavigate();
