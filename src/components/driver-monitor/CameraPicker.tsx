@@ -43,7 +43,7 @@ export function CameraPicker({
 			</button>
 
 			{open && (
-				<div className="mt-2 w-56 rounded-xl border border-white/10 bg-black/80 p-3 backdrop-blur-md">
+				<div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-white/10 bg-black/80 p-3 backdrop-blur-md">
 					{devices.length === 0 ? (
 						<p className="text-[10px] text-white/40">No cameras detected</p>
 					) : (
