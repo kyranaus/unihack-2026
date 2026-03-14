@@ -3,8 +3,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Play, Pause, BarChart2, Clock, Download, Zap } from "lucide-react";
 import { DriverFeedback } from "#/components/DriverFeedback";
+import type { SessionData } from "#/components/DriverFeedback";
 import { listRecordings, getRecording } from "#/lib/replay-store";
 import type { RecordingMeta } from "#/lib/replay-store";
+import { client } from "#/server/orpc/client";
 
 export const Route = createFileRoute("/replay")({ component: ReplayPage });
 
@@ -41,6 +43,8 @@ function ReplayPage() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [showReport, setShowReport] = useState(false);
+  const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
@@ -227,12 +231,47 @@ function ReplayPage() {
 
             {/* Report button */}
             <button
-              onClick={() => setShowReport(true)}
-              disabled={!selected}
+              onClick={async () => {
+                const meta = selected?.meta;
+                if (!meta) return;
+                const sid = (meta as any).sessionId as string | null;
+                if (sid) {
+                  setLoadingReport(true);
+                  try {
+                    const data = await client.getSession({ sessionId: sid });
+                    setSessionData({
+                      id: data.id,
+                      score: data.score,
+                      summary: data.summary,
+                      cameras: data.cameras,
+                      startedAt: data.startedAt.toISOString ? data.startedAt.toISOString() : String(data.startedAt),
+                      endedAt: data.endedAt ? (data.endedAt.toISOString ? data.endedAt.toISOString() : String(data.endedAt)) : null,
+                      events: data.events.map((e: any) => ({
+                        id: e.id,
+                        type: e.type,
+                        camera: e.camera,
+                        elapsedSec: e.elapsedSec,
+                        summary: e.summary,
+                        severity: e.severity,
+                        metadata: e.metadata,
+                      })),
+                    });
+                  } catch (err) {
+                    console.error("Failed to fetch session:", err);
+                    setSessionData(null);
+                  } finally {
+                    setLoadingReport(false);
+                  }
+                } else {
+                  setSessionData(null);
+                }
+                setShowReport(true);
+              }}
+              disabled={!selected || loadingReport}
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-card border border-border py-3 text-sm font-semibold text-foreground transition hover:bg-secondary disabled:opacity-40"
             >
               <BarChart2 size={16} />
-              View Drive Report
+              {loadingReport ? "Loading..." : "View Drive Report"}
             </button>
           </div>
 
@@ -279,7 +318,11 @@ function ReplayPage() {
         </div>
       </div>
 
-      <DriverFeedback isOpen={showReport} onClose={() => setShowReport(false)} />
+      <DriverFeedback
+        isOpen={showReport}
+        sessionData={sessionData}
+        onClose={() => { setShowReport(false); setSessionData(null); }}
+      />
     </main>
   );
 }
