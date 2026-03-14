@@ -36,6 +36,8 @@ import { CameraPicker } from "#/components/driver-monitor/CameraPicker";
 import { useStreamingUpload } from "#/hooks/use-streaming-upload";
 import type { PendingRecording } from "#/hooks/useRecording";
 import { DriverFeedback, type SessionData } from "#/components/DriverFeedback";
+import { useTrafficDetection } from "#/hooks/use-traffic-detection";
+import { TrafficOverlay } from "#/components/record/TrafficOverlay";
 
 const MAX_RECORD_SECS = 5 * 60;
 const ALARM_SRC = "/denielcz-speed-limit-violation-alert-463066.mp3";
@@ -114,6 +116,7 @@ export default function RecordView() {
   const [ending, setEnding] = useState(false);
   const [sessionScore, setSessionScore] = useState<number | null>(null);
   const [liveLog, setLiveLog] = useState<string[]>([]);
+  const [showTraffic, setShowTraffic] = useState(true);
 
   // Emergency overlay
   const [emergencyTriggered, setEmergencyTriggered] = useState(false);
@@ -701,6 +704,11 @@ export default function RecordView() {
   const recMins = Math.floor(recSeconds / 60).toString().padStart(2, "0");
   const recSecs = (recSeconds % 60).toString().padStart(2, "0");
 
+  // Traffic detection — runs on the back (road) camera
+  const trafficEnabled = showTraffic && backCamera.isReady;
+  const { detections: trafficDets, modelReady: trafficReady, modelLoading: trafficLoading } =
+    useTrafficDetection(backCamera.videoRef, trafficEnabled);
+
   if (error) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 bg-background p-6">
@@ -763,7 +771,10 @@ export default function RecordView() {
         {/* Back camera — main in back mode, PiP in dual front mode, hidden in single front mode */}
         <video
           ref={backCamera.videoRef}
-          onClick={() => !isSingleCam && activeCamera === "front" && handleFlipCamera()}
+          onClick={() => {
+            if (!isSingleCam && activeCamera === "front") handleFlipCamera();
+            else if (activeCamera === "back") setShowTraffic((v) => !v);
+          }}
           className={activeCamera === "back"
             ? "absolute inset-0 z-0 h-full w-full object-cover"
             : isSingleCam
@@ -772,6 +783,28 @@ export default function RecordView() {
           playsInline
           muted
         />
+
+        {/* Traffic detection overlay — main (back cam active) */}
+        {activeCamera === "back" && (
+          <TrafficOverlay
+            videoRef={backCamera.videoRef}
+            detections={trafficDets}
+            modelReady={trafficReady}
+            modelLoading={trafficLoading}
+            className="inset-0 h-full w-full"
+          />
+        )}
+
+        {/* Traffic detection overlay — PiP (front cam active, dual mode) */}
+        {!isSingleCam && activeCamera === "front" && (
+          <TrafficOverlay
+            videoRef={backCamera.videoRef}
+            detections={trafficDets}
+            modelReady={trafficReady}
+            modelLoading={trafficLoading}
+            className="top-3 left-3 h-28 w-20 rounded-xl"
+          />
+        )}
 
         {/* Front camera — main in front mode, PiP in dual back mode, hidden in single back mode */}
         <video
