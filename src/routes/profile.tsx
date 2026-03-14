@@ -206,8 +206,8 @@ function ProfilePage() {
           <div className="flex flex-col gap-4">
 
             {/* Recent drives */}
-            <div className="rounded-2xl bg-card border border-border px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-3">
+            <div className="rounded-2xl bg-card border border-border overflow-hidden">
+              <p className="px-5 pt-4 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 Recent drives
               </p>
               {loadingStats ? (
@@ -220,26 +220,28 @@ function ProfilePage() {
                   <p className="text-xs text-muted-foreground/60 mt-1">Start recording to see your history</p>
                 </div>
               ) : (
-                <div className="flex flex-col divide-y divide-border">
-                  {profileStats.recentDrives.map((d) => {
-                    const color = scoreColor(d.score);
-                    return (
-                      <button
-                        key={d.id}
-                        onClick={() => handleDriveClick(d.id)}
-                        disabled={loadingReport}
-                        className="flex items-center justify-between py-3 first:pt-0 last:pb-0 text-left transition hover:bg-secondary/50 disabled:opacity-50 w-full cursor-pointer"
-                      >
-                        <div>
-                          <p className="text-sm font-semibold">{relDate(d.startedAt)}</p>
-                          <p className="text-xs text-muted-foreground">{fmtTime(d.startedAt)} · {fmt(d.duration)}</p>
-                        </div>
-                        <span className="text-base font-black" style={{ color }}>
-                          {d.score}
-                        </span>
-                      </button>
-                    );
-                  })}
+                <div className="max-h-[320px] overflow-y-auto">
+                  <div className="flex flex-col divide-y divide-border">
+                    {profileStats.recentDrives.map((d) => {
+                      const color = scoreColor(d.score);
+                      return (
+                        <button
+                          key={d.id}
+                          onClick={() => handleDriveClick(d.id)}
+                          disabled={loadingReport}
+                          className="flex items-center justify-between px-5 py-3 text-left transition hover:bg-secondary/50 disabled:opacity-50 w-full cursor-pointer"
+                        >
+                          <div>
+                            <p className="text-sm font-semibold">{relDate(d.startedAt)}</p>
+                            <p className="text-xs text-muted-foreground">{fmtTime(d.startedAt)} · {fmt(d.duration)}</p>
+                          </div>
+                          <span className="text-base font-black" style={{ color }}>
+                            {d.score}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
