@@ -450,7 +450,21 @@ export default function RecordView() {
         className="flex flex-none items-center justify-between px-4 pb-2"
         style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
       >
-        <div className="w-16" />
+        {/* Front · Back toggle */}
+        <div className="flex items-center rounded-full bg-white/10 p-0.5">
+          {(["front", "back"] as const).map((cam) => (
+            <button
+              key={cam}
+              type="button"
+              onClick={() => setActiveCamera(cam)}
+              className={`rounded-full px-3 py-1 text-xs font-semibold capitalize transition-colors ${
+                activeCamera === cam ? "bg-white text-black" : "text-white/60"
+              }`}
+            >
+              {cam}
+            </button>
+          ))}
+        </div>
         <span className="text-base font-bold tracking-wide text-white">Record</span>
         <div className="w-16 text-right">
           <span className="font-mono text-sm font-bold text-white">
@@ -627,22 +641,6 @@ export default function RecordView() {
             className={`bg-red-500 transition-all duration-200 ${isRecording ? "h-8 w-8 rounded-lg" : "h-14 w-14 rounded-full"}`}
           />
         </button>
-
-        {/* Front · Back toggle */}
-        <div className="flex items-center rounded-full bg-white/10 p-0.5">
-          {(["front", "back"] as const).map((cam) => (
-            <button
-              key={cam}
-              type="button"
-              onClick={() => setActiveCamera(cam)}
-              className={`rounded-full px-5 py-1.5 text-xs font-semibold capitalize transition-colors ${
-                activeCamera === cam ? "bg-white text-black" : "text-white/60"
-              }`}
-            >
-              {cam}
-            </button>
-          ))}
-        </div>
 
         {/* Live log */}
         {liveLog.length > 0 && (
