@@ -1,6 +1,6 @@
 // src/routes/index.tsx
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { lazy } from "react"
+import { lazy, useEffect, useState } from "react"
 import { motion } from "framer-motion"
 
 const DotLottieReact = lazy(() =>
@@ -74,16 +74,17 @@ function BeeAnimations() {
       {/* Big bee — flies in from left, stops just past the title, then bobs */}
       <motion.div
         className="absolute"
-        style={{ top: "38%" }}
+        style={{ top: "60%" }}
         initial={{ x: "-160px" }}
-        animate={{ x: "calc(35vw)" }}
+        
+        animate={{ x: "calc(40vw)" }}
         transition={{ duration: 4, ease: "easeOut" }}
       >
         <motion.div
-          animate={{ y: [0, -25, 0, 25, 0] }}
+          animate={{ y: [0, -5, 0, 5, 0] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         >
-          <DotLottieReact src="/flyingBee.lottie" autoplay loop style={{ width: 130, height: 130 }} />
+          <DotLottieReact src="/flyingBee.lottie" autoplay loop style={{ width: 90, height: 90 }} />
         </motion.div>
       </motion.div>
 
