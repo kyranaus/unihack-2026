@@ -14,6 +14,7 @@ import {
   getPartUrl,
   completeVideoUpload,
   abortVideoUpload,
+  findSafePullover,
 } from './drives'
 
 export default {
@@ -33,4 +34,5 @@ export default {
   getPartUrl,
   completeVideoUpload,
   abortVideoUpload,
+  findSafePullover,
 }

@@ -14,6 +14,7 @@ import {
   completeMultipartUpload,
   abortMultipartUpload,
 } from "#/server/s3"
+import { findPulloverSpots } from "#/server/overpass"
 
 const cameraEnum = z.enum(["front", "back"])
 
@@ -388,4 +389,22 @@ export const abortVideoUpload = os
   .handler(async ({ input }) => {
     await abortMultipartUpload(input.key, input.uploadId)
     return { success: true }
+  })
+
+export const findSafePullover = os
+  .input(
+    z.object({
+      latitude: z.number(),
+      longitude: z.number(),
+      radiusMeters: z.number().int().min(500).max(5000).optional(),
+    }),
+  )
+  .handler(async ({ input }) => {
+    const spots = await findPulloverSpots(
+      input.latitude,
+      input.longitude,
+      input.radiusMeters ?? 2000,
+      2,
+    )
+    return { spots }
   })

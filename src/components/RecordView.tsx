@@ -36,6 +36,8 @@ import { CameraPicker } from "#/components/driver-monitor/CameraPicker";
 import { useStreamingUpload } from "#/hooks/use-streaming-upload";
 import type { PendingRecording } from "#/hooks/useRecording";
 import { DriverFeedback, type SessionData } from "#/components/DriverFeedback";
+import { usePulloverSuggestion } from "#/hooks/usePulloverSuggestion";
+import { PulloverSuggestion } from "#/components/PulloverSuggestion";
 
 const MAX_RECORD_SECS = 5 * 60;
 const ALARM_SRC = "/denielcz-speed-limit-violation-alert-463066.mp3";
@@ -173,6 +175,12 @@ export default function RecordView() {
   // GPS speed and location for crash detection context
   const { speedKmh, latitude, longitude, accuracy, heading } = useSpeed();
 
+  // Pull-over suggestion after repeated drowsiness
+  const handlePulloverShow = useCallback(() => {
+    speak("Warning. You've dozed off multiple times. Please pull over at the next safe spot.").catch(() => {});
+  }, [speak]);
+  const pullover = usePulloverSuggestion(driverState, latitude, longitude, isRecording, handlePulloverShow);
+
   // Keep ref in sync for use inside timer callback
   useEffect(() => { speedKmhRef.current = speedKmh; }, [speedKmh]);
 
@@ -210,7 +218,7 @@ export default function RecordView() {
     ]);
   }, [debugAccel, crash.currentG, crash.ax, crash.ay, crash.az]);
 
-  // TTS alerts for driver warnings
+  // TTS alerts for driver warnings (pull-over TTS is handled by the onShow callback)
   useEffect(() => {
     if (!isRecording || driverState === "ALERT" || driverState === "NO_FACE") return;
     const now = Date.now();
@@ -989,6 +997,12 @@ export default function RecordView() {
           onDone={() => { setPendingRec(null); setSessionScore(null); lastSessionIdRef.current = null; }}
         />
       )}
+
+      <PulloverSuggestion
+        spots={pullover.spots}
+        visible={pullover.visible}
+        onDismiss={pullover.dismiss}
+      />
 
       <EmergencyOverlay
         triggered={emergencyTriggered}
