@@ -29,7 +29,7 @@ function LoginPage() {
   const handleAnonymousSignIn = async () => {
     const { error } = await authClient.signIn.anonymous()
     if (!error) {
-      navigate({ to: "/" })
+      navigate({ to: "/onboarding" })
     }
   }
 
