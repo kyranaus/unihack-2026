@@ -1,151 +1,100 @@
-// src/components/DriverFeedback.tsx
-import { X } from "lucide-react";
-import type { DriveReport } from "#/types/drive";
+import { X, Camera, Eye, AlertTriangle, Car } from "lucide-react";
 
-const MOCK_REPORT: DriveReport = {
-  durationMinutes: 42,
-  focusStreakMinutes: 14,
-  events: {
-    eyesClosed:         { count: 3,  totalSecs: 8,  longestSecs: 4  },
-    eyesOffRoad:        { count: 5,  totalSecs: 12 },
-    phoneUse:           { count: 1,  totalSecs: 20 },
-    yawning:            { count: 2 },
-    tailgating:         { count: 2,  totalSecs: 30 },
-    speeding:           { count: 1,  peakKmhOver: 15, totalSecs: 45 },
-    harshBraking:       { count: 2,  maxG: 0.4 },
-    harshAcceleration:  { count: 0,  maxG: 0   },
-    harshTakeoff:       { count: 1,  maxG: 0.3 },
-    smoothBraking:      { count: 8  },
-    smoothAcceleration: { count: 5  },
-    smoothTakeoff:      { count: 6  },
-  },
+export type SessionEvent = {
+  id: string;
+  type: string;
+  camera: string;
+  elapsedSec: number;
+  summary: string;
+  severity: string;
+  metadata: unknown;
 };
 
-function calcScore(report: DriveReport): number {
-  const { events, focusStreakMinutes } = report;
-  let score = 100;
-
-  // Negatives
-  const closedOver = Math.max(0, events.eyesClosed.totalSecs - 2);
-  score -= closedOver * 2;
-
-  const offRoadOver = Math.max(0, events.eyesOffRoad.totalSecs - 3);
-  score -= offRoadOver * 1;
-
-  score -= events.phoneUse.count * 15;
-  score -= events.yawning.count * 3;
-  score -= events.tailgating.totalSecs * 1;
-  score -= Math.min(20, events.speeding.peakKmhOver * events.speeding.totalSecs * 0.05);
-  score -= events.harshBraking.count * 5;
-  score -= events.harshAcceleration.count * 3;
-  score -= events.harshTakeoff.count * 4;
-
-  // Positives
-  score += Math.min(10, events.smoothBraking.count * 2);
-  score += Math.min(5,  events.smoothAcceleration.count * 1);
-  score += Math.min(10, events.smoothTakeoff.count * 2);
-
-  if (focusStreakMinutes > 20) score += 10;
-  else if (focusStreakMinutes > 10) score += 5;
-
-  if (events.phoneUse.count === 0) score += 5;
-
-  const totalHarsh =
-    events.harshBraking.count +
-    events.harshAcceleration.count +
-    events.harshTakeoff.count;
-  if (totalHarsh === 0) score += 5;
-
-  return Math.max(0, Math.min(100, Math.round(score)));
-}
-
-function grade(score: number): { label: string; emoji: string } {
-  if (score >= 90) return { label: "Excellent", emoji: "🏆" };
-  if (score >= 75) return { label: "Good",      emoji: "✅" };
-  if (score >= 60) return { label: "Fair",      emoji: "⚠️" };
-  return                  { label: "Needs Work", emoji: "❌" };
-}
+export type SessionData = {
+  id: string;
+  score: number | null;
+  summary: string | null;
+  cameras: string[];
+  startedAt: string;
+  endedAt: string | null;
+  events: SessionEvent[];
+};
 
 type Props = {
-  report?: DriveReport;
+  sessionData?: SessionData | null;
   onClose: () => void;
   isOpen: boolean;
 };
 
-export function DriverFeedback({ report = MOCK_REPORT, onClose, isOpen }: Props) {
+function fmt(sec: number) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+const SEVERITY_DOT: Record<string, string> = {
+  info: "text-zinc-400",
+  warning: "text-amber-400",
+  critical: "text-red-400",
+};
+
+const TYPE_ICON: Record<string, typeof Eye> = {
+  driver_state: Eye,
+  road_analysis: Car,
+  crash: AlertTriangle,
+};
+
+function grade(score: number): { label: string } {
+  if (score >= 90) return { label: "Excellent" };
+  if (score >= 75) return { label: "Good" };
+  if (score >= 60) return { label: "Fair" };
+  return { label: "Needs Work" };
+}
+
+export function DriverFeedback({ sessionData, onClose, isOpen }: Props) {
   if (!isOpen) return null;
 
-  const score = calcScore(report);
-  const { label, emoji } = grade(score);
-  const { events, durationMinutes, focusStreakMinutes } = report;
+  if (!sessionData || sessionData.events.length === 0) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4"
+        onClick={(e) => e.target === e.currentTarget && onClose()}
+      >
+        <div className="w-full max-w-sm rounded-3xl bg-zinc-900 text-white px-6 py-8 text-center">
+          <p className="text-sm text-zinc-400">No event data for this drive.</p>
+          <p className="text-xs text-zinc-600 mt-1">Record with AI enabled to see a report.</p>
+          <button
+            onClick={onClose}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-zinc-800 py-3 text-sm font-semibold text-white"
+          >
+            <X size={16} /> Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-  const ringColor =
-    score >= 80 ? "#22c55e" : score >= 60 ? "#eab308" : "#ef4444";
-
+  const score = sessionData.score ?? 0;
+  const { label } = grade(score);
+  const ringColor = score >= 80 ? "#22c55e" : score >= 60 ? "#eab308" : "#ef4444";
   const circumference = 2 * Math.PI * 40;
   const dash = (score / 100) * circumference;
 
-  // Negatives — only shown if count > 0
-  const negatives: { text: string }[] = [];
-  if (events.eyesClosed.count > 0)
-    negatives.push({
-      text: `Eyes closed ${events.eyesClosed.count}× (${events.eyesClosed.totalSecs}s total, longest ${events.eyesClosed.longestSecs}s)`,
-    });
-  if (events.eyesOffRoad.count > 0)
-    negatives.push({
-      text: `Eyes off road ${events.eyesOffRoad.count}× (${events.eyesOffRoad.totalSecs}s total)`,
-    });
-  if (events.phoneUse.count > 0)
-    negatives.push({
-      text: `Phone use ${events.phoneUse.count}× (${events.phoneUse.totalSecs}s)`,
-    });
-  if (events.yawning.count > 0)
-    negatives.push({ text: `Yawning detected ${events.yawning.count}×` });
-  if (events.tailgating.count > 0)
-    negatives.push({
-      text: `Tailgating ${events.tailgating.count}× (${events.tailgating.totalSecs}s total)`,
-    });
-  if (events.speeding.count > 0)
-    negatives.push({
-      text: `Speeding ${events.speeding.count}× — peak +${events.speeding.peakKmhOver} km/h over limit`,
-    });
-  if (events.harshBraking.count > 0)
-    negatives.push({
-      text: `Harsh braking ${events.harshBraking.count}× (max ${events.harshBraking.maxG}g)`,
-    });
-  if (events.harshAcceleration.count > 0)
-    negatives.push({
-      text: `Harsh acceleration ${events.harshAcceleration.count}× (max ${events.harshAcceleration.maxG}g)`,
-    });
-  if (events.harshTakeoff.count > 0)
-    negatives.push({
-      text: `Harsh takeoff ${events.harshTakeoff.count}× (max ${events.harshTakeoff.maxG}g)`,
-    });
+  const durationSec = sessionData.endedAt
+    ? Math.round((new Date(sessionData.endedAt).getTime() - new Date(sessionData.startedAt).getTime()) / 1000)
+    : 0;
 
-  // Positives — only shown if earned
-  const positives: { text: string }[] = [];
-  if (events.smoothBraking.count > 0)
-    positives.push({ text: `Smooth braking ${events.smoothBraking.count}×` });
-  if (events.smoothAcceleration.count > 0)
-    positives.push({ text: `Smooth acceleration ${events.smoothAcceleration.count}×` });
-  if (events.smoothTakeoff.count > 0)
-    positives.push({ text: `Smooth takeoff ${events.smoothTakeoff.count}×` });
-  if (focusStreakMinutes > 10)
-    positives.push({ text: `Focus streak: ${focusStreakMinutes} min uninterrupted` });
-  if (events.phoneUse.count === 0)
-    positives.push({ text: "No phone use during drive" });
-  const totalHarsh =
-    events.harshBraking.count + events.harshAcceleration.count + events.harshTakeoff.count;
-  if (totalHarsh === 0)
-    positives.push({ text: "Zero harsh driving events" });
+  const warnings = sessionData.events.filter((e) => e.severity === "warning");
+  const criticals = sessionData.events.filter((e) => e.severity === "critical");
+  const frontEvents = sessionData.events.filter((e) => e.camera === "front");
+  const backEvents = sessionData.events.filter((e) => e.camera === "back");
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="flex h-[72vh] w-full max-w-sm flex-col overflow-hidden rounded-3xl bg-zinc-900 text-white">
-        {/* Scrollable body */}
+      <div className="flex h-[78vh] w-full max-w-sm flex-col overflow-hidden rounded-3xl bg-zinc-900 text-white">
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-8 pb-4">
           {/* Score circle */}
           <div className="flex flex-col items-center">
@@ -153,71 +102,100 @@ export function DriverFeedback({ report = MOCK_REPORT, onClose, isOpen }: Props)
               <svg className="absolute inset-0 -rotate-90" viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r="40" fill="none" stroke="#27272a" strokeWidth="8" />
                 <circle
-                  cx="50" cy="50" r="40"
-                  fill="none"
-                  stroke={ringColor}
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                  strokeDasharray={`${dash} ${circumference}`}
+                  cx="50" cy="50" r="40" fill="none" stroke={ringColor} strokeWidth="8"
+                  strokeLinecap="round" strokeDasharray={`${dash} ${circumference}`}
                   style={{ transition: "stroke-dasharray 0.6s ease" }}
                 />
               </svg>
               <span className="text-3xl font-bold">{score}</span>
             </div>
-            <p className="mt-3 text-xl font-semibold">
-              {emoji} {label}
-            </p>
-            <p className="mt-1 text-sm text-zinc-400">
-              {durationMinutes} min drive
-            </p>
+            <p className="mt-3 text-xl font-semibold">{label}</p>
+            <p className="mt-1 text-sm text-zinc-400">{fmt(durationSec)} drive</p>
           </div>
 
-          {/* Positives */}
-          {positives.length > 0 && (
-            <div className="mt-6">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-                Well done
-              </p>
-              <ul className="space-y-2">
-                {positives.map((p) => (
-                  <li key={p.text} className="flex gap-2 text-sm text-zinc-300">
-                    <span className="mt-0.5 text-green-400">•</span>
-                    {p.text}
-                  </li>
-                ))}
-              </ul>
+          {/* Cameras active */}
+          <div className="mt-5 flex items-center justify-center gap-3">
+            {sessionData.cameras.map((cam) => (
+              <div key={cam} className="flex items-center gap-1.5 rounded-full bg-zinc-800 px-3 py-1.5">
+                <Camera size={12} className="text-zinc-400" />
+                <span className="text-xs font-semibold capitalize text-zinc-300">{cam} cam</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Stats row */}
+          <div className="mt-5 grid grid-cols-3 gap-2">
+            <div className="flex flex-col items-center rounded-xl bg-zinc-800 py-3">
+              <span className="text-lg font-black text-zinc-200">{sessionData.events.length}</span>
+              <span className="text-[10px] uppercase tracking-widest text-zinc-500">Events</span>
+            </div>
+            <div className="flex flex-col items-center rounded-xl bg-zinc-800 py-3">
+              <span className="text-lg font-black text-amber-400">{warnings.length}</span>
+              <span className="text-[10px] uppercase tracking-widest text-zinc-500">Warnings</span>
+            </div>
+            <div className="flex flex-col items-center rounded-xl bg-zinc-800 py-3">
+              <span className="text-lg font-black text-red-400">{criticals.length}</span>
+              <span className="text-[10px] uppercase tracking-widest text-zinc-500">Critical</span>
+            </div>
+          </div>
+
+          {/* AI Summary */}
+          {sessionData.summary && (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">AI Summary</p>
+              <p className="text-sm leading-relaxed text-zinc-300">{sessionData.summary}</p>
             </div>
           )}
 
-          {/* Negatives — top 3 */}
-          {negatives.length > 0 && (
+          {/* Front camera events */}
+          {frontEvents.length > 0 && (
             <div className="mt-5">
               <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">
-                Areas to improve
+                Front Camera ({frontEvents.length})
               </p>
-              <ul className="space-y-2">
-                {negatives.slice(0, 3).map((n) => (
-                  <li key={n.text} className="flex gap-2 text-sm text-zinc-300">
-                    <span className="mt-0.5 text-red-400">•</span>
-                    {n.text}
-                  </li>
-                ))}
-              </ul>
+              <EventList events={frontEvents} />
+            </div>
+          )}
+
+          {/* Back camera events */}
+          {backEvents.length > 0 && (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">
+                Back Camera ({backEvents.length})
+              </p>
+              <EventList events={backEvents} />
             </div>
           )}
         </div>
 
-        {/* Close button */}
         <div className="shrink-0 px-6 pb-6 pt-2">
           <button
             onClick={onClose}
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-zinc-800 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700"
           >
-            <X size={16} />
-            Close
+            <X size={16} /> Close
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function EventList({ events }: { events: SessionEvent[] }) {
+  return (
+    <div className="space-y-1.5">
+      {events.map((e) => {
+        const Icon = TYPE_ICON[e.type] ?? AlertTriangle;
+        return (
+          <div key={e.id} className="flex items-start gap-2 rounded-xl bg-zinc-800/60 px-3 py-2">
+            <Icon size={13} className={`mt-0.5 shrink-0 ${SEVERITY_DOT[e.severity] ?? "text-zinc-400"}`} />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs leading-relaxed text-zinc-300">{e.summary}</p>
+              <p className="mt-0.5 text-[10px] text-zinc-600">{fmt(e.elapsedSec)} - {e.type.replace("_", " ")}</p>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

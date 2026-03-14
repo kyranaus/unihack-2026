@@ -7,6 +7,10 @@ import { useFaceDetection } from "#/hooks/use-face-detection";
 import { useMediaRecorder } from "#/hooks/use-media-recorder";
 import { useSpeed } from "#/hooks/use-speed";
 import { requestMotionPermission, useCrashDetection } from "#/hooks/use-crash-detection";
+import { useFrameCapture } from "#/hooks/useFrameCapture";
+import { useDriverEventLogger } from "#/hooks/useDriverEventLogger";
+import { driveSessionStore } from "#/hooks/useDriveSession";
+import { client } from "#/server/orpc/client";
 import type { PendingRecording } from "#/hooks/useRecording";
 import { getSupportedMimeType } from "#/lib/media-utils";
 import { SaveRecordingDialog } from "#/components/SaveRecordingDialog";
@@ -82,6 +86,17 @@ export default function DriverMonitor() {
 	const [motionPermissionHintShown, setMotionPermissionHintShown] =
 		useState(false);
 	const [pendingRec, setPendingRec] = useState<PendingRecording | null>(null);
+	const [liveLog, setLiveLog] = useState<string[]>([]);
+	const [driveSummary, setDriveSummary] = useState<string | null>(null);
+	const [ending, setEnding] = useState(false);
+	const [sessionScore, setSessionScore] = useState<number | null>(null);
+	const sessionIdRef = useRef<string | null>(null);
+	const lastSessionIdRef = useRef<string | null>(null);
+
+	const addLog = useCallback((msg: string) => {
+		const ts = new Date().toLocaleTimeString("en-AU", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+		setLiveLog((prev) => [...prev.slice(-19), `[${ts}] ${msg}`]);
+	}, []);
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
@@ -109,6 +124,31 @@ export default function DriverMonitor() {
 	const detection = useFaceDetection(frontCamera.videoRef, canvasRef);
 	const frontRecorder = useMediaRecorder(frontCamera.stream);
 	const backRecorder = useMediaRecorder(backCamera.stream);
+
+	useDriverEventLogger(detection.driverState, detection.metrics, "front");
+
+	const lastAISummaryRef = useRef("");
+
+	const handleFrameBatch = useCallback(async (frames: string[]) => {
+		const sessionId = sessionIdRef.current;
+		if (!sessionId) return;
+		try {
+			const result = await client.analyseRoadFrames({
+				sessionId,
+				elapsedSec: Math.floor((Date.now() - (driveSessionStore.state.startedAt ?? Date.now())) / 1000),
+				frames,
+				camera: "front",
+			});
+			if (result.severity !== "info" && result.summary !== lastAISummaryRef.current) {
+				lastAISummaryRef.current = result.summary;
+				addLog(`AI: [${result.severity}] ${result.summary}`);
+			}
+		} catch (err) {
+			addLog(`AI ERROR: ${err instanceof Error ? err.message : "analysis failed"}`);
+		}
+	}, [addLog]);
+
+	useFrameCapture(frontCamera.videoRef, frontRecorder.isRecording, handleFrameBatch);
 
 	const { speedKmh } = useSpeed();
 
@@ -160,7 +200,13 @@ export default function DriverMonitor() {
 	const handleStartRecording = useCallback(() => {
 		frontRecorder.startRecording();
 		backRecorder.startRecording();
-	}, [frontRecorder, backRecorder]);
+		addLog("Starting session...");
+		client.startSession({}).then(({ sessionId }) => {
+			sessionIdRef.current = sessionId;
+			driveSessionStore.setState(() => ({ sessionId, startedAt: Date.now() }));
+			addLog(`Session started: ${sessionId.slice(0, 8)}...`);
+		}).catch((err) => addLog(`Session start FAILED: ${err}`));
+	}, [frontRecorder, backRecorder, addLog]);
 
 	const handleStopRecording = useCallback(async () => {
 		const duration = frontRecorder.duration || backRecorder.duration || 0;
@@ -168,7 +214,29 @@ export default function DriverMonitor() {
 			frontRecorder.stopRecording(),
 			backRecorder.stopRecording(),
 		]);
-		// Use road (back) blob for save-to-replays; show Save dialog
+
+		const sessionId = sessionIdRef.current;
+		let finalScore: number | null = null;
+
+		if (sessionId) {
+			lastSessionIdRef.current = sessionId;
+			setEnding(true);
+			addLog("Ending session, generating summary...");
+			try {
+				const { summary, score } = await client.endSession({ sessionId });
+				setDriveSummary(summary);
+				finalScore = score ?? null;
+				setSessionScore(finalScore);
+				addLog(`Session ended: score=${score}, events logged`);
+			} catch (err) {
+				addLog(`End session FAILED: ${err}`);
+			} finally {
+				setEnding(false);
+				sessionIdRef.current = null;
+				driveSessionStore.setState(() => ({ sessionId: null, startedAt: null }));
+			}
+		}
+
 		const blob = backBlob ?? frontBlob;
 		if (blob) {
 			setPendingRec({
@@ -177,7 +245,7 @@ export default function DriverMonitor() {
 				mimeType: getSupportedMimeType() || "video/webm",
 			});
 		}
-	}, [frontRecorder, backRecorder]);
+	}, [frontRecorder, backRecorder, addLog]);
 
 	const toggleViewMode = useCallback(() => {
 		setViewMode((m) => (m === "road" ? "face" : "road"));
@@ -329,6 +397,15 @@ export default function DriverMonitor() {
 					/>
 				)}
 
+				{liveLog.length > 0 && (
+					<div className="absolute inset-x-3 bottom-20 z-20 max-h-28 overflow-y-auto rounded-xl bg-black/80 border border-zinc-700 px-3 py-2 backdrop-blur-sm">
+						<p className="text-[9px] font-semibold uppercase tracking-widest text-zinc-500 mb-1">Live Log</p>
+						{liveLog.map((line, i) => (
+							<p key={i} className="font-mono text-[10px] leading-relaxed text-zinc-300">{line}</p>
+						))}
+					</div>
+				)}
+
 				{!loading && (
 					<RecordingControls
 						isRecording={isRecording}
@@ -346,10 +423,32 @@ export default function DriverMonitor() {
 				/>
 			)}
 
+			{/* Drive summary overlay */}
+			{driveSummary && !isRecording && (
+				<div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+					<div className="rounded-2xl border border-white/10 bg-zinc-900 px-6 py-5 mx-4 w-full max-w-sm">
+						<p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500 mb-2">AI Drive Summary</p>
+						<p className="text-sm leading-relaxed text-zinc-200">{driveSummary}</p>
+						<button type="button" onClick={() => setDriveSummary(null)} className="mt-4 w-full rounded-xl bg-white/10 py-3 text-sm font-semibold text-white">Dismiss</button>
+					</div>
+				</div>
+			)}
+
+			{ending && (
+				<div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/80">
+					<div className="flex flex-col items-center gap-3">
+						<div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-600 border-t-white" />
+						<p className="text-sm text-zinc-400">Generating drive summary...</p>
+					</div>
+				</div>
+			)}
+
 			{pendingRec && (
 				<SaveRecordingDialog
 					pending={pendingRec}
-					onDone={() => setPendingRec(null)}
+					sessionId={lastSessionIdRef.current}
+					score={sessionScore}
+					onDone={() => { setPendingRec(null); setSessionScore(null); lastSessionIdRef.current = null; }}
 				/>
 			)}
 		</div>
