@@ -4,15 +4,15 @@ import { createFileRoute } from "@tanstack/react-router"
 const REGION = process.env.AWS_REGION ?? "ap-southeast-2"
 const SERVICE = "polly"
 
-async function hmacSHA256(key: ArrayBuffer | Uint8Array, data: string): Promise<ArrayBuffer> {
+async function hmacSHA256(key: ArrayBuffer | Uint8Array<ArrayBuffer>, data: string): Promise<ArrayBuffer> {
   const cryptoKey = await crypto.subtle.importKey(
     "raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
   )
-  return crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(data))
+  return crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(data) as Uint8Array<ArrayBuffer>)
 }
 
-async function sha256(data: string | Uint8Array): Promise<string> {
-  const buf = typeof data === "string" ? new TextEncoder().encode(data) : data
+async function sha256(data: string | Uint8Array<ArrayBuffer>): Promise<string> {
+  const buf: Uint8Array<ArrayBuffer> = typeof data === "string" ? new TextEncoder().encode(data) as Uint8Array<ArrayBuffer> : data
   const hash = await crypto.subtle.digest("SHA-256", buf)
   return hex(hash)
 }
@@ -22,7 +22,7 @@ function hex(buf: ArrayBuffer): string {
 }
 
 async function signingKey(secretKey: string, date: string): Promise<ArrayBuffer> {
-  let key: ArrayBuffer = await hmacSHA256(new TextEncoder().encode(`AWS4${secretKey}`), date)
+  let key: ArrayBuffer = await hmacSHA256(new TextEncoder().encode(`AWS4${secretKey}`) as Uint8Array<ArrayBuffer>, date)
   for (const part of [REGION, SERVICE, "aws4_request"]) {
     key = await hmacSHA256(key, part)
   }
@@ -103,7 +103,7 @@ async function handle({ request }: { request: Request }) {
       })
     }
 
-    const audioBytes = new Uint8Array(await res.arrayBuffer())
+    const audioBytes = new Uint8Array(await res.arrayBuffer()) as Uint8Array<ArrayBuffer>
 
     return new Response(audioBytes, {
       headers: {

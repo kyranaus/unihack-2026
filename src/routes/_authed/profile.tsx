@@ -86,7 +86,7 @@ function ProfilePage() {
 
   const handleSignOut = async () => {
     await authClient.signOut();
-    navigate({ to: "/login" });
+    navigate({ to: "/login", search: { redirect: undefined } });
   };
 
   const handleDriveClick = async (sessionId: string) => {

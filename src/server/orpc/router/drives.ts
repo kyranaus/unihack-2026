@@ -1,5 +1,6 @@
 import { os } from "@orpc/server"
 import * as z from "zod"
+import { Prisma } from "#/generated/prisma/client.js"
 import { prisma } from "#/server/db"
 import { analyseFrames, summariseDrive } from "#/server/ai/analyse-frames"
 import { auth } from "#/server/auth"
@@ -96,7 +97,7 @@ export const logDriverEvent = os
           elapsedSec: input.elapsedSec,
           summary: input.summary,
           severity: input.severity,
-          metadata: input.metadata ?? {},
+          metadata: (input.metadata ?? {}) as Prisma.InputJsonObject,
         },
       })
 

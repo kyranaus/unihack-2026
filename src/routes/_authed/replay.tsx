@@ -108,6 +108,7 @@ function ReplayPage() {
             sessionId: s.id,
           },
           url: "",
+          backUrl: null,
           source: "cloud" as const,
           videoKey: s.videoKey!,
         }));
