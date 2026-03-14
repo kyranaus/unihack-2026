@@ -556,7 +556,7 @@ export default function RecordView() {
 						metadata: e.metadata,
 					})),
 				});
-				setSessionScore(data.score ?? null);
+				setSessionScore(data.score ?? 0);
 				setShowReport(true);
 				addLog(`Session ended: score=${data.score}, events logged`);
 				queryClient.invalidateQueries({ queryKey: ["profileStats"] });
