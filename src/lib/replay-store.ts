@@ -11,6 +11,7 @@ export interface Recording {
   videoBlob: Blob;
   mimeType: string;
   score: number;
+  sessionId: string | null;
 }
 export type RecordingMeta = Omit<Recording, "videoBlob">;
 
@@ -47,7 +48,13 @@ function del(db: IDBDatabase, id: string): Promise<void> {
   });
 }
 
-export async function saveRecording(blob: Blob, duration: number, mimeType: string): Promise<string> {
+export async function saveRecording(
+  blob: Blob,
+  duration: number,
+  mimeType: string,
+  sessionId: string | null = null,
+  score: number | null = null,
+): Promise<string> {
   const db = await openDB();
   const all = await getAllMetas(db);
   if (all.length >= MAX_RECORDINGS) {
@@ -57,8 +64,8 @@ export async function saveRecording(blob: Blob, duration: number, mimeType: stri
     }
   }
   const id = crypto.randomUUID();
-  const score = Math.floor(70 + Math.random() * 26);
-  const record: Recording = { id, timestamp: Date.now(), duration, videoBlob: blob, mimeType, score };
+  const finalScore = score ?? Math.floor(70 + Math.random() * 26);
+  const record: Recording = { id, timestamp: Date.now(), duration, videoBlob: blob, mimeType, score: finalScore, sessionId };
   return new Promise((resolve, reject) => {
     const req = db.transaction(STORE_NAME, "readwrite").objectStore(STORE_NAME).add(record);
     req.onsuccess = () => { resolve(id); db.close(); };

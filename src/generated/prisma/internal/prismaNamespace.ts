@@ -388,7 +388,9 @@ export const ModelName = {
   user: 'user',
   session: 'session',
   account: 'account',
-  verification: 'verification'
+  verification: 'verification',
+  DriveSession: 'DriveSession',
+  DriveEvent: 'DriveEvent'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -404,7 +406,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "todo" | "user" | "session" | "account" | "verification"
+    modelProps: "todo" | "user" | "session" | "account" | "verification" | "driveSession" | "driveEvent"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -778,6 +780,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    DriveSession: {
+      payload: Prisma.$DriveSessionPayload<ExtArgs>
+      fields: Prisma.DriveSessionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.DriveSessionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveSessionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.DriveSessionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveSessionPayload>
+        }
+        findFirst: {
+          args: Prisma.DriveSessionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveSessionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.DriveSessionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveSessionPayload>
+        }
+        findMany: {
+          args: Prisma.DriveSessionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveSessionPayload>[]
+        }
+        create: {
+          args: Prisma.DriveSessionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveSessionPayload>
+        }
+        createMany: {
+          args: Prisma.DriveSessionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.DriveSessionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveSessionPayload>[]
+        }
+        delete: {
+          args: Prisma.DriveSessionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveSessionPayload>
+        }
+        update: {
+          args: Prisma.DriveSessionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveSessionPayload>
+        }
+        deleteMany: {
+          args: Prisma.DriveSessionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.DriveSessionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.DriveSessionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveSessionPayload>[]
+        }
+        upsert: {
+          args: Prisma.DriveSessionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveSessionPayload>
+        }
+        aggregate: {
+          args: Prisma.DriveSessionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateDriveSession>
+        }
+        groupBy: {
+          args: Prisma.DriveSessionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DriveSessionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.DriveSessionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DriveSessionCountAggregateOutputType> | number
+        }
+      }
+    }
+    DriveEvent: {
+      payload: Prisma.$DriveEventPayload<ExtArgs>
+      fields: Prisma.DriveEventFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.DriveEventFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveEventPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.DriveEventFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveEventPayload>
+        }
+        findFirst: {
+          args: Prisma.DriveEventFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveEventPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.DriveEventFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveEventPayload>
+        }
+        findMany: {
+          args: Prisma.DriveEventFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveEventPayload>[]
+        }
+        create: {
+          args: Prisma.DriveEventCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveEventPayload>
+        }
+        createMany: {
+          args: Prisma.DriveEventCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.DriveEventCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveEventPayload>[]
+        }
+        delete: {
+          args: Prisma.DriveEventDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveEventPayload>
+        }
+        update: {
+          args: Prisma.DriveEventUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveEventPayload>
+        }
+        deleteMany: {
+          args: Prisma.DriveEventDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.DriveEventUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.DriveEventUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveEventPayload>[]
+        }
+        upsert: {
+          args: Prisma.DriveEventUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DriveEventPayload>
+        }
+        aggregate: {
+          args: Prisma.DriveEventAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateDriveEvent>
+        }
+        groupBy: {
+          args: Prisma.DriveEventGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DriveEventGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.DriveEventCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DriveEventCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -884,12 +1034,47 @@ export const VerificationScalarFieldEnum = {
 export type VerificationScalarFieldEnum = (typeof VerificationScalarFieldEnum)[keyof typeof VerificationScalarFieldEnum]
 
 
+export const DriveSessionScalarFieldEnum = {
+  id: 'id',
+  startedAt: 'startedAt',
+  endedAt: 'endedAt',
+  summary: 'summary',
+  score: 'score',
+  cameras: 'cameras',
+  createdAt: 'createdAt'
+} as const
+
+export type DriveSessionScalarFieldEnum = (typeof DriveSessionScalarFieldEnum)[keyof typeof DriveSessionScalarFieldEnum]
+
+
+export const DriveEventScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  type: 'type',
+  camera: 'camera',
+  elapsedSec: 'elapsedSec',
+  summary: 'summary',
+  severity: 'severity',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+} as const
+
+export type DriveEventScalarFieldEnum = (typeof DriveEventScalarFieldEnum)[keyof typeof DriveEventScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
 } as const
 
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
+
+
+export const JsonNullValueInput = {
+  JsonNull: JsonNull
+} as const
+
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
 
 
 export const QueryMode = {
@@ -906,6 +1091,15 @@ export const NullsOrder = {
 } as const
 
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 
 
 
@@ -960,6 +1154,20 @@ export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaM
  * Reference to a field of type 'Boolean'
  */
 export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
+    
+
+
+/**
+ * Reference to a field of type 'Json'
+ */
+export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
+    
+
+
+/**
+ * Reference to a field of type 'QueryMode'
+ */
+export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
     
 
 
@@ -1076,6 +1284,8 @@ export type GlobalOmitConfig = {
   session?: Prisma.sessionOmit
   account?: Prisma.accountOmit
   verification?: Prisma.verificationOmit
+  driveSession?: Prisma.DriveSessionOmit
+  driveEvent?: Prisma.DriveEventOmit
 }
 
 /* Types for Logging */

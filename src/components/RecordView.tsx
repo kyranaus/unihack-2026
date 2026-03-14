@@ -1,6 +1,7 @@
 // src/components/RecordView.tsx
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import type { DriverState, SmoothedMetrics } from "#/lib/driver-monitor-utils";
 import {
   CONFIG,
@@ -14,6 +15,12 @@ import {
   getHeadDirection,
 } from "#/lib/driver-monitor-utils";
 import { useRecording } from "#/hooks/useRecording";
+import { useFrameCapture } from "#/hooks/useFrameCapture";
+import { useDriverEventLogger } from "#/hooks/useDriverEventLogger";
+import { useCollisionDetection } from "#/hooks/useCollisionDetection";
+import { usePollyTTS } from "#/lib/use-polly-tts";
+import { driveSessionStore } from "#/hooks/useDriveSession";
+import { client } from "#/server/orpc/client";
 import { SaveRecordingDialog } from "#/components/SaveRecordingDialog";
 
 const MAX_RECORD_SECS = 5 * 60;
@@ -27,8 +34,10 @@ export default function RecordView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const alarmRef = useRef<HTMLAudioElement | null>(null);
+  const navigate = useNavigate();
 
   const { start: startRec, stop: stopRec, pending: pendingRec, clearPending } = useRecording(streamRef);
+  const { speak } = usePollyTTS();
 
   const [driverState, setDriverState] = useState<DriverState>("NO_FACE");
   const [metrics, setMetrics] = useState<SmoothedMetrics>({ ear: 0, yaw: 1, pitch: 0.7 });
@@ -38,21 +47,121 @@ export default function RecordView() {
   const [isRecording, setIsRecording] = useState(false);
   const [recSeconds, setRecSeconds] = useState(0);
   const [activeCamera, setActiveCamera] = useState<"front" | "back">("front");
+  const [driveSummary, setDriveSummary] = useState<string | null>(null);
+  const [ending, setEnding] = useState(false);
+
+  const sessionIdRef = useRef<string | null>(null);
+  const recSecondsRef = useRef(0);
+  const lastTTSWarningRef = useRef(0);
+
+  const [sessionScore, setSessionScore] = useState<number | null>(null);
+  const [liveLog, setLiveLog] = useState<string[]>([]);
+  const lastSessionIdRef = useRef<string | null>(null);
+
+  const addLog = useCallback((msg: string) => {
+    const ts = new Date().toLocaleTimeString("en-AU", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    setLiveLog((prev) => [...prev.slice(-19), `[${ts}] ${msg}`]);
+  }, []);
+
+  useDriverEventLogger(driverState, metrics, "front");
+
+  // TTS alerts for driver warnings (only if AWS Polly is configured)
+  useEffect(() => {
+    if (!isRecording || driverState === "ALERT" || driverState === "NO_FACE") return;
+    const now = Date.now();
+    if (now - lastTTSWarningRef.current < 15000) return;
+    lastTTSWarningRef.current = now;
+
+    const messages: Record<string, string> = {
+      DROWSY: "Warning. You appear drowsy. Please stay alert.",
+      DISTRACTED: "Eyes on the road. You appear distracted.",
+      ASLEEP: "Wake up! Pull over immediately.",
+    };
+    const msg = messages[driverState];
+    if (msg) {
+      speak(msg).catch(() => {});
+    }
+  }, [driverState, isRecording, speak, addLog]);
+
+  // Collision detection
+  const handleCollision = useCallback(async (gForce: number) => {
+    addLog(`CRASH: ${gForce.toFixed(1)}g impact detected`);
+    const sessionId = sessionIdRef.current;
+    if (sessionId) {
+      await client.logDriverEvent({
+        sessionId,
+        elapsedSec: recSecondsRef.current,
+        type: "crash",
+        summary: `Collision detected - ${gForce.toFixed(1)}g impact`,
+        severity: "critical",
+        camera: "front",
+        metadata: { gForce },
+      }).catch(console.error);
+    }
+    navigate({ to: "/emergency" as any });
+  }, [navigate]);
+
+  useCollisionDetection(isRecording, handleCollision);
+
+  // Frame capture for AI road analysis
+  const handleFrameBatch = useCallback(async (frames: string[]) => {
+    const sessionId = sessionIdRef.current;
+    if (!sessionId) return;
+    try {
+      const result = await client.analyseRoadFrames({
+        sessionId,
+        elapsedSec: recSecondsRef.current,
+        frames,
+        camera: "front",
+      });
+      addLog(`AI: [${result.severity}] ${result.summary}`);
+    } catch (err) {
+      addLog(`AI ERROR: ${err instanceof Error ? err.message : "analysis failed"}`);
+    }
+  }, [addLog]);
+
+  useFrameCapture(videoRef, isRecording, handleFrameBatch);
 
   // REC timer + auto-stop at 5 min
   useEffect(() => {
-    if (!isRecording) { setRecSeconds(0); return; }
+    if (!isRecording) { setRecSeconds(0); recSecondsRef.current = 0; return; }
     const id = setInterval(() => setRecSeconds((s) => {
-      if (s + 1 >= MAX_RECORD_SECS) { setIsRecording(false); return 0; }
-      return s + 1;
+      const next = s + 1;
+      recSecondsRef.current = next;
+      if (next >= MAX_RECORD_SECS) { setIsRecording(false); return 0; }
+      return next;
     }), 1000);
     return () => clearInterval(id);
   }, [isRecording]);
 
-  // Start/stop MediaRecorder when isRecording changes
+  // Start/stop MediaRecorder + AI session when isRecording changes
   useEffect(() => {
-    if (isRecording) startRec();
-    else stopRec();
+    if (isRecording) {
+      startRec();
+      addLog("Starting session...");
+      client.startSession({}).then(({ sessionId }) => {
+        sessionIdRef.current = sessionId;
+        driveSessionStore.setState(() => ({ sessionId, startedAt: Date.now() }));
+        addLog(`Session started: ${sessionId.slice(0, 8)}...`);
+      }).catch((err) => { addLog(`Session start FAILED: ${err}`); console.error(err); });
+    } else {
+      stopRec();
+      const sessionId = sessionIdRef.current;
+      if (sessionId) {
+        lastSessionIdRef.current = sessionId;
+        setEnding(true);
+        addLog("Ending session, generating summary...");
+        client.endSession({ sessionId }).then(({ summary, score }) => {
+          setDriveSummary(summary);
+          setSessionScore(score ?? null);
+          addLog(`Session ended: score=${score}, events logged`);
+        }).catch((err) => { addLog(`End session FAILED: ${err}`); console.error(err); }).finally(() => {
+          setEnding(false);
+          sessionIdRef.current = null;
+          driveSessionStore.setState(() => ({ sessionId: null, startedAt: null }));
+        });
+      }
+    }
   }, [isRecording, startRec, stopRec]);
 
   useEffect(() => {
@@ -386,9 +495,54 @@ export default function RecordView() {
             </button>
           ))}
         </div>
+
+        {/* Live AI log */}
+        {liveLog.length > 0 && (
+          <div className="mx-3 mt-1 max-h-24 overflow-y-auto rounded-xl bg-zinc-900/90 border border-zinc-800 px-3 py-2">
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-zinc-600 mb-1">Live Log</p>
+            {liveLog.map((line, i) => (
+              <p key={i} className="font-mono text-[10px] leading-relaxed text-zinc-400">{line}</p>
+            ))}
+          </div>
+        )}
       </div>
 
-      {pendingRec && <SaveRecordingDialog pending={pendingRec} onDone={clearPending} />}
+      {/* Drive summary overlay */}
+      {driveSummary && !isRecording && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="rounded-2xl border border-white/10 bg-zinc-900 px-6 py-5 mx-4 w-full max-w-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500 mb-2">
+              AI Drive Summary
+            </p>
+            <p className="text-sm leading-relaxed text-zinc-200">{driveSummary}</p>
+            <button
+              type="button"
+              onClick={() => setDriveSummary(null)}
+              className="mt-4 w-full rounded-xl bg-white/10 py-3 text-sm font-semibold text-white"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {ending && (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/80">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-600 border-t-white" />
+            <p className="text-sm text-zinc-400">Generating drive summary...</p>
+          </div>
+        </div>
+      )}
+
+      {pendingRec && (
+        <SaveRecordingDialog
+          pending={pendingRec}
+          sessionId={lastSessionIdRef.current}
+          score={sessionScore}
+          onDone={() => { clearPending(); setSessionScore(null); lastSessionIdRef.current = null; }}
+        />
+      )}
     </div>
   );
 }

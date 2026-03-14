@@ -55,7 +55,9 @@ export const ModelName = {
   user: 'user',
   session: 'session',
   account: 'account',
-  verification: 'verification'
+  verification: 'verification',
+  DriveSession: 'DriveSession',
+  DriveEvent: 'DriveEvent'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -141,12 +143,47 @@ export const VerificationScalarFieldEnum = {
 export type VerificationScalarFieldEnum = (typeof VerificationScalarFieldEnum)[keyof typeof VerificationScalarFieldEnum]
 
 
+export const DriveSessionScalarFieldEnum = {
+  id: 'id',
+  startedAt: 'startedAt',
+  endedAt: 'endedAt',
+  summary: 'summary',
+  score: 'score',
+  cameras: 'cameras',
+  createdAt: 'createdAt'
+} as const
+
+export type DriveSessionScalarFieldEnum = (typeof DriveSessionScalarFieldEnum)[keyof typeof DriveSessionScalarFieldEnum]
+
+
+export const DriveEventScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  type: 'type',
+  camera: 'camera',
+  elapsedSec: 'elapsedSec',
+  summary: 'summary',
+  severity: 'severity',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+} as const
+
+export type DriveEventScalarFieldEnum = (typeof DriveEventScalarFieldEnum)[keyof typeof DriveEventScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
 } as const
 
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
+
+
+export const JsonNullValueInput = {
+  JsonNull: JsonNull
+} as const
+
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
 
 
 export const QueryMode = {
@@ -163,4 +200,13 @@ export const NullsOrder = {
 } as const
 
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 

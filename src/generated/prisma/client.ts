@@ -66,3 +66,13 @@ export type account = Prisma.accountModel
  * 
  */
 export type verification = Prisma.verificationModel
+/**
+ * Model DriveSession
+ * 
+ */
+export type DriveSession = Prisma.DriveSessionModel
+/**
+ * Model DriveEvent
+ * 
+ */
+export type DriveEvent = Prisma.DriveEventModel
