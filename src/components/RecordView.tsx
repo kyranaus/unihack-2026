@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import type { DriverState, SmoothedMetrics } from "#/lib/driver-monitor-utils";
+import type { DriverState, EarCalibration, SmoothedMetrics } from "#/lib/driver-monitor-utils";
 import {
   CONFIG,
   FACE_LANDMARKER_MODEL_URL,
@@ -11,9 +11,12 @@ import {
   STATE_DISPLAY,
   computeEAR,
   computeHeadPose,
+  createEarCalibration,
   drawOverlay,
   ema,
+  getEarThreshold,
   getHeadDirection,
+  updateEarCalibration,
 } from "#/lib/driver-monitor-utils";
 import { useCamera } from "#/hooks/use-camera";
 import { useCameraMode } from "#/hooks/use-camera-mode";
@@ -96,6 +99,8 @@ export default function RecordView() {
   const [pendingRec, setPendingRec] = useState<PendingRecording | null>(null);
   const [driverState, setDriverState] = useState<DriverState>("NO_FACE");
   const [metrics, setMetrics] = useState<SmoothedMetrics>({ ear: 0, yaw: 1, pitch: 0.7 });
+  const [calSamples, setCalSamples] = useState(0);
+  const [earThreshold, setEarThreshold] = useState(CONFIG.EAR_THRESHOLD);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recSeconds, setRecSeconds] = useState(0);
@@ -424,6 +429,7 @@ export default function RecordView() {
       noFaceFrames: 0,
       currentState: "NO_FACE" as DriverState,
       lastRenderTime: 0,
+      cal: createEarCalibration() as EarCalibration,
     };
 
     async function init() {
@@ -495,7 +501,10 @@ export default function RecordView() {
         s.smoothedYaw = ema(pose.yawRatio, s.smoothedYaw, CONFIG.HEAD_SMOOTHING);
         s.smoothedPitch = ema(pose.pitchRatio, s.smoothedPitch, CONFIG.HEAD_SMOOTHING);
 
-        if (s.smoothedEAR < CONFIG.EAR_THRESHOLD) {
+        updateEarCalibration(s.cal, ear.average, pose.yawRatio, pose.pitchRatio);
+        const earThreshold = getEarThreshold(s.cal);
+
+        if (s.smoothedEAR < earThreshold) {
           if (!s.eyesClosedSince) s.eyesClosedSince = now;
         } else {
           s.eyesClosedSince = null;
@@ -547,12 +556,14 @@ export default function RecordView() {
       ctx.save();
       ctx.translate(-ox, -oy);
       ctx.scale(coverScale, coverScale);
-      drawOverlay(ctx, vw, vh, landmarks, s.smoothedEAR < CONFIG.EAR_THRESHOLD, true);
+      drawOverlay(ctx, vw, vh, landmarks, s.smoothedEAR < getEarThreshold(s.cal), true);
       ctx.restore();
 
       if (now - s.lastRenderTime > CONFIG.RENDER_INTERVAL_MS) {
         setDriverState(s.currentState);
         setMetrics({ ear: s.smoothedEAR, yaw: s.smoothedYaw, pitch: s.smoothedPitch });
+        setCalSamples(s.cal.buffer.length);
+        setEarThreshold(getEarThreshold(s.cal));
         s.lastRenderTime = now;
       }
       animFrameId = requestAnimationFrame(detect);
@@ -748,11 +759,21 @@ export default function RecordView() {
         {!loading && (
           <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-col bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-8 pr-16">
             {activeCamera === "front" && (
-              <div className="flex items-center gap-4">
-                <span className="text-[11px] font-semibold text-white/70">Eyes <span className="text-white">{eyePct}%</span></span>
-                <span className="text-[11px] font-semibold text-white/70">State <span style={{ color: display.color }}>{display.label}</span></span>
-                <span className="text-[11px] font-semibold text-white/70">Head <span className="text-white">{headDir}</span></span>
-              </div>
+              <>
+                <div className="mb-1 flex items-center gap-3 font-mono text-[10px]">
+                  <span className={calSamples >= CONFIG.EAR_CALIBRATION_MIN_SAMPLES ? "text-green-400" : "text-yellow-400"}>
+                    {calSamples >= CONFIG.EAR_CALIBRATION_MIN_SAMPLES ? "CAL READY" : `CAL ${calSamples}/${CONFIG.EAR_CALIBRATION_MIN_SAMPLES}`}
+                  </span>
+                  <span className="text-white/40">thr <span className="text-white/80">{earThreshold.toFixed(3)}</span></span>
+                  <span className="text-white/40">EAR <span className="text-white/80">{metrics.ear.toFixed(3)}</span></span>
+                  <span className="text-white/40">base <span className="text-white/80">{calSamples >= CONFIG.EAR_CALIBRATION_MIN_SAMPLES ? (earThreshold / CONFIG.EAR_CALIBRATION_RATIO).toFixed(3) : "—"}</span></span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-[11px] font-semibold text-white/70">Eyes <span className="text-white">{eyePct}%</span></span>
+                  <span className="text-[11px] font-semibold text-white/70">State <span style={{ color: display.color }}>{display.label}</span></span>
+                  <span className="text-[11px] font-semibold text-white/70">Head <span className="text-white">{headDir}</span></span>
+                </div>
+              </>
             )}
             <div className="mt-0.5 flex items-center gap-4">
               <span className="text-[11px] font-semibold text-white/70">Speed <span className="text-white">{speedKmh != null ? `${Math.round(speedKmh)} km/h` : "–"}</span></span>

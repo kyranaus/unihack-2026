@@ -420,6 +420,8 @@ export default function DriverMonitor() {
 				<MetricsBar
 					metrics={detection.metrics}
 					driverState={detection.driverState}
+					calSamples={detection.calSamples}
+					earThreshold={detection.earThreshold}
 				/>
 			)}
 
