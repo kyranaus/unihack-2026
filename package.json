@@ -18,7 +18,8 @@
     "db:push": "dotenv -e .env.local -- prisma db push",
     "db:migrate": "dotenv -e .env.local -- prisma migrate dev",
     "db:studio": "dotenv -e .env.local -- prisma studio",
-    "db:seed": "dotenv -e .env.local -- prisma db seed"
+    "db:seed": "dotenv -e .env.local -- prisma db seed",
+    "postinstall": "dotenv -e .env.local -- prisma generate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
