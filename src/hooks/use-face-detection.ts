@@ -1,14 +1,17 @@
 // src/hooks/use-face-detection.ts
 import { useEffect, useState } from "react";
-import type { DriverState, SmoothedMetrics } from "#/lib/driver-monitor-utils";
+import type { DriverState, EarCalibration, SmoothedMetrics } from "#/lib/driver-monitor-utils";
 import {
 	CONFIG,
 	computeEAR,
 	computeHeadPose,
+	createEarCalibration,
 	drawOverlay,
 	ema,
 	FACE_LANDMARKER_MODEL_URL,
+	getEarThreshold,
 	MEDIAPIPE_WASM_URL,
+	updateEarCalibration,
 } from "#/lib/driver-monitor-utils";
 
 export function useFaceDetection(
@@ -23,6 +26,8 @@ export function useFaceDetection(
 	});
 	const [fps, setFps] = useState(0);
 	const [isModelLoading, setIsModelLoading] = useState(true);
+	const [calSamples, setCalSamples] = useState(0);
+	const [earThreshold, setEarThreshold] = useState(0.2);
 
 	useEffect(() => {
 		let animFrameId: number;
@@ -42,6 +47,7 @@ export function useFaceDetection(
 			lastFpsTime: performance.now(),
 			lastRenderTime: 0,
 			currentFps: 0,
+			cal: createEarCalibration() as EarCalibration,
 		};
 
 		async function init() {
@@ -120,22 +126,25 @@ export function useFaceDetection(
 			} else if (landmarks) {
 				s.noFaceFrames = 0;
 
-				const ear = computeEAR(landmarks);
-				const pose = computeHeadPose(landmarks);
+			const ear = computeEAR(landmarks);
+			const pose = computeHeadPose(landmarks);
 
-				s.smoothedEAR = ema(ear.average, s.smoothedEAR, CONFIG.EAR_SMOOTHING);
-				s.smoothedYaw = ema(
-					pose.yawRatio,
-					s.smoothedYaw,
-					CONFIG.HEAD_SMOOTHING,
-				);
-				s.smoothedPitch = ema(
-					pose.pitchRatio,
-					s.smoothedPitch,
-					CONFIG.HEAD_SMOOTHING,
-				);
+			s.smoothedEAR = ema(ear.average, s.smoothedEAR, CONFIG.EAR_SMOOTHING);
+			s.smoothedYaw = ema(
+				pose.yawRatio,
+				s.smoothedYaw,
+				CONFIG.HEAD_SMOOTHING,
+			);
+			s.smoothedPitch = ema(
+				pose.pitchRatio,
+				s.smoothedPitch,
+				CONFIG.HEAD_SMOOTHING,
+			);
 
-				if (s.smoothedEAR < CONFIG.EAR_THRESHOLD) {
+			updateEarCalibration(s.cal, ear.average, pose.yawRatio, pose.pitchRatio);
+			const earThreshold = getEarThreshold(s.cal);
+
+			if (s.smoothedEAR < earThreshold) {
 					if (!s.eyesClosedSince) s.eyesClosedSince = now;
 				} else {
 					s.eyesClosedSince = null;
@@ -171,7 +180,7 @@ export function useFaceDetection(
 				canvas.width,
 				canvas.height,
 				landmarks,
-				s.smoothedEAR < CONFIG.EAR_THRESHOLD,
+				s.smoothedEAR < getEarThreshold(s.cal),
 			);
 
 			if (now - s.lastRenderTime > CONFIG.RENDER_INTERVAL_MS) {
@@ -182,6 +191,8 @@ export function useFaceDetection(
 					pitch: s.smoothedPitch,
 				});
 				setFps(s.currentFps);
+				setCalSamples(s.cal.buffer.length);
+				setEarThreshold(getEarThreshold(s.cal));
 				s.lastRenderTime = now;
 			}
 
@@ -198,5 +209,5 @@ export function useFaceDetection(
 		};
 	}, [videoRef, canvasRef]);
 
-	return { driverState, metrics, fps, isModelLoading };
+	return { driverState, metrics, fps, isModelLoading, calSamples, earThreshold };
 }
