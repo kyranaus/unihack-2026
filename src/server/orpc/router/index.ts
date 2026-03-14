@@ -5,6 +5,7 @@ import {
   logDriverEvent,
   endSession,
   getSession,
+  getProfileStats,
 } from './drives'
 
 export default {
@@ -15,4 +16,5 @@ export default {
   logDriverEvent,
   endSession,
   getSession,
+  getProfileStats,
 }
