@@ -37,6 +37,7 @@ function scoreColor(score: number): string {
 interface DriveEntry {
   meta: RecordingMeta;
   url: string;
+  backUrl: string | null;
 }
 
 function ReplayPage() {
@@ -47,10 +48,13 @@ function ReplayPage() {
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [activeCamera, setActiveCamera] = useState<"front" | "back">("back");
+  const [showDownloadSheet, setShowDownloadSheet] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const frontVideoRef = useRef<HTMLVideoElement>(null);
+  const backVideoRef = useRef<HTMLVideoElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
   const loadDrives = useCallback(async () => {
@@ -61,11 +65,15 @@ function ReplayPage() {
         metas.map(async (meta) => {
           const rec = await getRecording(meta.id);
           const url = rec ? URL.createObjectURL(rec.videoBlob) : "";
-          return { meta, url };
+          const backUrl = rec?.backVideoBlob ? URL.createObjectURL(rec.backVideoBlob) : null;
+          return { meta, url, backUrl };
         })
       );
       setDrives((prev) => {
-        prev.forEach((d) => { if (d.url) URL.revokeObjectURL(d.url); });
+        for (const d of prev) {
+          if (d.url) URL.revokeObjectURL(d.url);
+          if (d.backUrl) URL.revokeObjectURL(d.backUrl);
+        }
         return entries;
       });
       setSelectedIdx(0);
@@ -76,10 +84,7 @@ function ReplayPage() {
     }
   }, []);
 
-  // Reload on mount, when refreshKey changes (navigated from record page), or on window focus
-  useEffect(() => {
-    loadDrives();
-  }, [loadDrives, refreshKey]);
+  useEffect(() => { loadDrives(); }, [loadDrives, refreshKey]);
 
   useEffect(() => {
     const onFocus = () => loadDrives();
@@ -87,11 +92,12 @@ function ReplayPage() {
     return () => window.removeEventListener("focus", onFocus);
   }, [loadDrives]);
 
-  // Reset video state when selected drive changes
+  // Reset player state when selected drive changes
   useEffect(() => {
     setPlaying(false);
     setCurrentTime(0);
     setDuration(drives[selectedIdx]?.meta.duration ?? 0);
+    setActiveCamera(drives[selectedIdx]?.backUrl ? "back" : "front");
   }, [selectedIdx, drives]);
 
   const getPercent = () => (duration > 0 ? (currentTime / duration) * 100 : 0);
@@ -99,37 +105,38 @@ function ReplayPage() {
   const scrubTo = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
       const track = trackRef.current;
-      const video = videoRef.current;
-      if (!track || !video || !duration) return;
+      const front = frontVideoRef.current;
+      const back = backVideoRef.current;
+      if (!track || !front || !duration) return;
       const rect = track.getBoundingClientRect();
       const clientX = "touches" in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
       const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      video.currentTime = ratio * duration;
-      setCurrentTime(video.currentTime);
+      front.currentTime = ratio * duration;
+      if (back) back.currentTime = ratio * duration;
+      setCurrentTime(front.currentTime);
     },
     [duration]
   );
 
   const togglePlay = () => {
-    const video = videoRef.current;
-    if (!video || !drives[selectedIdx]?.url) return;
-    if (playing) { video.pause(); setPlaying(false); }
-    else { video.play().catch(() => {}); setPlaying(true); }
-  };
-
-  const handleDownload = () => {
-    const drive = drives[selectedIdx];
-    if (!drive?.url) return;
-    const a = document.createElement("a");
-    a.href = drive.url;
-    a.download = `beesafe-${new Date(drive.meta.timestamp).toISOString().slice(0, 10)}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const front = frontVideoRef.current;
+    const back = backVideoRef.current;
+    const selected = drives[selectedIdx];
+    if (!front || !selected?.url) return;
+    if (playing) {
+      front.pause();
+      back?.pause();
+      setPlaying(false);
+    } else {
+      front.play().catch(() => {});
+      back?.play().catch(() => {});
+      setPlaying(true);
+    }
   };
 
   const selected = drives[selectedIdx];
   const color = selected ? scoreColor(selected.meta.score) : "#22c55e";
+  const dateStr = selected ? new Date(selected.meta.timestamp).toISOString().slice(0, 10) : "recording";
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -148,19 +155,36 @@ function ReplayPage() {
             {/* Video */}
             <div className="relative w-full overflow-hidden rounded-2xl bg-card border border-border" style={{ aspectRatio: "16/9" }}>
               {selected?.url ? (
-                <video
-                  key={selected.meta.id}
-                  ref={videoRef}
-                  src={selected.url}
-                  className="absolute inset-0 h-full w-full object-cover"
-                  playsInline
-                  onLoadedMetadata={() => {
-                    const d = videoRef.current?.duration;
-                    setDuration(d && Number.isFinite(d) ? d : selected.meta.duration);
-                  }}
-                  onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime ?? 0)}
-                  onEnded={() => setPlaying(false)}
-                />
+                <>
+                  {/* Front cam */}
+                  <video
+                    key={`${selected.meta.id}-front`}
+                    ref={frontVideoRef}
+                    src={selected.url}
+                    className={activeCamera === "front"
+                      ? "absolute inset-0 z-0 h-full w-full object-cover"
+                      : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
+                    onClick={() => activeCamera === "back" && setActiveCamera("front")}
+                    playsInline
+                    onLoadedMetadata={() => setDuration(frontVideoRef.current?.duration ?? selected.meta.duration)}
+                    onTimeUpdate={() => setCurrentTime(frontVideoRef.current?.currentTime ?? 0)}
+                    onEnded={() => setPlaying(false)}
+                  />
+
+                  {/* Back cam (PiP — only if available) */}
+                  {selected.backUrl && (
+                    <video
+                      key={`${selected.meta.id}-back`}
+                      ref={backVideoRef}
+                      src={selected.backUrl}
+                      className={activeCamera === "back"
+                        ? "absolute inset-0 z-0 h-full w-full object-cover"
+                        : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
+                      onClick={() => activeCamera === "front" && setActiveCamera("back")}
+                      playsInline
+                    />
+                  )}
+                </>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-sm text-muted-foreground">
@@ -172,7 +196,7 @@ function ReplayPage() {
               {/* Play/pause */}
               <button
                 onClick={togglePlay}
-                className="absolute bottom-3 left-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm"
+                className="absolute bottom-3 left-3 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm"
               >
                 {playing
                   ? <Pause size={18} fill="white" color="white" />
@@ -183,8 +207,8 @@ function ReplayPage() {
               {/* Download */}
               {selected?.url && (
                 <button
-                  onClick={handleDownload}
-                  className="absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm"
+                  onClick={() => setShowDownloadSheet(true)}
+                  className="absolute bottom-3 right-3 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm"
                   title="Download recording"
                 >
                   <Download size={16} color="white" />
@@ -194,7 +218,7 @@ function ReplayPage() {
               {/* Score badge */}
               {selected && (
                 <div
-                  className="absolute top-3 right-3 rounded-full px-3 py-1 text-sm font-black backdrop-blur-sm"
+                  className="absolute top-3 right-3 z-20 rounded-full px-3 py-1 text-sm font-black backdrop-blur-sm"
                   style={{ color, backgroundColor: "rgba(0,0,0,0.5)" }}
                 >
                   {selected.meta.score}
@@ -322,6 +346,70 @@ function ReplayPage() {
 
         </div>
       </div>
+
+      {/* Download sheet */}
+      {showDownloadSheet && selected && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowDownloadSheet(false)}
+        >
+          <div
+            className="w-full max-w-sm mx-4 rounded-2xl bg-zinc-900 border border-white/10 px-6 py-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-white font-bold text-base text-center mb-4">Download recordings</p>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between rounded-xl bg-white/5 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-white">Front cam</p>
+                  <p className="text-[10px] text-white/40">Driver view</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const a = document.createElement("a");
+                    a.href = selected.url;
+                    a.download = `front-cam-${dateStr}`;
+                    a.click();
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-white active:bg-white/20"
+                >
+                  <Download size={12} />
+                  Download
+                </button>
+              </div>
+              {selected.backUrl && (
+                <div className="flex items-center justify-between rounded-xl bg-white/5 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-white">Back cam</p>
+                    <p className="text-[10px] text-white/40">Road view</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const a = document.createElement("a");
+                      a.href = selected.backUrl!;
+                      a.download = `back-cam-${dateStr}`;
+                      a.click();
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-semibold text-white active:bg-white/20"
+                  >
+                    <Download size={12} />
+                    Download
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDownloadSheet(false)}
+              className="mt-4 w-full rounded-xl bg-white/10 py-3 text-sm font-semibold text-white/70"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       <DriverFeedback
         isOpen={showReport}
