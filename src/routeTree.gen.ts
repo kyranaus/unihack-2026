@@ -19,6 +19,7 @@ import { Route as AuthedReplayRouteImport } from './routes/_authed/replay'
 import { Route as AuthedRecordRouteImport } from './routes/_authed/record'
 import { Route as AuthedProfileRouteImport } from './routes/_authed/profile'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
+import { Route as AuthedLeaderboardRouteImport } from './routes/_authed/leaderboard'
 import { Route as AuthedEmergencyRouteImport } from './routes/_authed/emergency'
 import { Route as AuthedDriverMonitorRouteImport } from './routes/_authed/driver-monitor'
 import { Route as ApiRpcSplatRouteImport } from './routes/api.rpc.$'
@@ -73,6 +74,11 @@ const AuthedOnboardingRoute = AuthedOnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedLeaderboardRoute = AuthedLeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedEmergencyRoute = AuthedEmergencyRouteImport.update({
   id: '/emergency',
   path: '/emergency',
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/driver-monitor': typeof AuthedDriverMonitorRoute
   '/emergency': typeof AuthedEmergencyRoute
+  '/leaderboard': typeof AuthedLeaderboardRoute
   '/onboarding': typeof AuthedOnboardingRoute
   '/profile': typeof AuthedProfileRoute
   '/record': typeof AuthedRecordRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/driver-monitor': typeof AuthedDriverMonitorRoute
   '/emergency': typeof AuthedEmergencyRoute
+  '/leaderboard': typeof AuthedLeaderboardRoute
   '/onboarding': typeof AuthedOnboardingRoute
   '/profile': typeof AuthedProfileRoute
   '/record': typeof AuthedRecordRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authed/driver-monitor': typeof AuthedDriverMonitorRoute
   '/_authed/emergency': typeof AuthedEmergencyRoute
+  '/_authed/leaderboard': typeof AuthedLeaderboardRoute
   '/_authed/onboarding': typeof AuthedOnboardingRoute
   '/_authed/profile': typeof AuthedProfileRoute
   '/_authed/record': typeof AuthedRecordRoute
@@ -149,6 +158,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/driver-monitor'
     | '/emergency'
+    | '/leaderboard'
     | '/onboarding'
     | '/profile'
     | '/record'
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/driver-monitor'
     | '/emergency'
+    | '/leaderboard'
     | '/onboarding'
     | '/profile'
     | '/record'
@@ -179,6 +190,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/_authed/driver-monitor'
     | '/_authed/emergency'
+    | '/_authed/leaderboard'
     | '/_authed/onboarding'
     | '/_authed/profile'
     | '/_authed/record'
@@ -272,6 +284,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOnboardingRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/leaderboard': {
+      id: '/_authed/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof AuthedLeaderboardRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/emergency': {
       id: '/_authed/emergency'
       path: '/emergency'
@@ -306,6 +325,7 @@ declare module '@tanstack/react-router' {
 interface AuthedRouteChildren {
   AuthedDriverMonitorRoute: typeof AuthedDriverMonitorRoute
   AuthedEmergencyRoute: typeof AuthedEmergencyRoute
+  AuthedLeaderboardRoute: typeof AuthedLeaderboardRoute
   AuthedOnboardingRoute: typeof AuthedOnboardingRoute
   AuthedProfileRoute: typeof AuthedProfileRoute
   AuthedRecordRoute: typeof AuthedRecordRoute
@@ -316,6 +336,7 @@ interface AuthedRouteChildren {
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedDriverMonitorRoute: AuthedDriverMonitorRoute,
   AuthedEmergencyRoute: AuthedEmergencyRoute,
+  AuthedLeaderboardRoute: AuthedLeaderboardRoute,
   AuthedOnboardingRoute: AuthedOnboardingRoute,
   AuthedProfileRoute: AuthedProfileRoute,
   AuthedRecordRoute: AuthedRecordRoute,
