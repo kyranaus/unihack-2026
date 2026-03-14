@@ -15,6 +15,7 @@ import {
   abortMultipartUpload,
   getObjectBuffer,
 } from "#/server/s3"
+import { findPulloverSpots } from "#/server/overpass"
 import { storeHashOnChain, getHashFromChain, sha256Hex, BASE_SEPOLIA_EXPLORER } from "#/server/blockchain"
 
 const cameraEnum = z.enum(["front", "back"])
@@ -397,6 +398,24 @@ export const abortVideoUpload = os
     return { success: true }
   })
 
+export const findSafePullover = os
+  .input(
+    z.object({
+      latitude: z.number(),
+      longitude: z.number(),
+      radiusMeters: z.number().int().min(500).max(5000).optional(),
+    }),
+  )
+  .handler(async ({ input }) => {
+    const spots = await findPulloverSpots(
+      input.latitude,
+      input.longitude,
+      input.radiusMeters ?? 2000,
+      2,
+    )
+    return { spots }
+  })
+  
 export const storeVideoHash = os
   .input(z.object({ sessionId: z.string() }))
   .handler(async ({ input }) => {
