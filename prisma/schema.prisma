@@ -70,6 +70,7 @@ model DriveSession {
   summary   String?
   score     Int?
   cameras   String[]
+  videoUrl  String?
   events    DriveEvent[]
   createdAt DateTime     @default(now())
 }

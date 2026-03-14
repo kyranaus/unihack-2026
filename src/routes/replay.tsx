@@ -59,13 +59,25 @@ function ReplayPage() {
       const metas = await listRecordings();
       const entries: DriveEntry[] = await Promise.all(
         metas.map(async (meta) => {
+          // Prefer S3 URL from DB if the session has one
+          if (meta.sessionId) {
+            try {
+              const session = await client.getSession({ sessionId: meta.sessionId });
+              if (session.videoUrl) {
+                return { meta, url: session.videoUrl };
+              }
+            } catch {
+              // fallthrough to local blob
+            }
+          }
           const rec = await getRecording(meta.id);
           const url = rec ? URL.createObjectURL(rec.videoBlob) : "";
           return { meta, url };
         })
       );
       setDrives((prev) => {
-        prev.forEach((d) => { if (d.url) URL.revokeObjectURL(d.url); });
+        // Only revoke object URLs (blob:), not S3 https URLs
+        prev.forEach((d) => { if (d.url.startsWith("blob:")) URL.revokeObjectURL(d.url); });
         return entries;
       });
       setSelectedIdx(0);
@@ -120,12 +132,16 @@ function ReplayPage() {
   const handleDownload = () => {
     const drive = drives[selectedIdx];
     if (!drive?.url) return;
-    const a = document.createElement("a");
-    a.href = drive.url;
-    a.download = `beesafe-${new Date(drive.meta.timestamp).toISOString().slice(0, 10)}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    if (drive.url.startsWith("blob:")) {
+      const a = document.createElement("a");
+      a.href = drive.url;
+      a.download = `beesafe-${new Date(drive.meta.timestamp).toISOString().slice(0, 10)}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      window.open(drive.url, "_blank");
+    }
   };
 
   const selected = drives[selectedIdx];

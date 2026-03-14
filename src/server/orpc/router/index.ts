@@ -6,6 +6,7 @@ import {
   endSession,
   getSession,
   getProfileStats,
+  getUploadUrl,
 } from './drives'
 
 export default {
@@ -17,4 +18,5 @@ export default {
   endSession,
   getSession,
   getProfileStats,
+  getUploadUrl,
 }
