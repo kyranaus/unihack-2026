@@ -14,6 +14,8 @@ import {
   getPartUrl,
   completeVideoUpload,
   abortVideoUpload,
+  storeVideoHash,
+  verifyVideoHash,
 } from './drives'
 
 export default {
@@ -33,4 +35,6 @@ export default {
   getPartUrl,
   completeVideoUpload,
   abortVideoUpload,
+  storeVideoHash,
+  verifyVideoHash,
 }
