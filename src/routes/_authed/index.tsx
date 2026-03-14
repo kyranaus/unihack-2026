@@ -1,6 +1,6 @@
 // src/routes/_authed/index.tsx
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { lazy, useEffect, useState } from "react"
+import { lazy, useEffect, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import QRCode from "qrcode"
 
@@ -104,6 +104,18 @@ function App() {
   const { user } = Route.useRouteContext()
   const username = user.name || "Driver"
   const [qrDataUrl, setQrDataUrl] = useState<string>("")
+  const titleRef = useRef<HTMLDivElement>(null)
+  const [beeTop, setBeeTop] = useState(0)
+
+  useEffect(() => {
+    const el = titleRef.current
+    if (!el) return
+    const update = () => setBeeTop(el.offsetTop + el.offsetHeight + 16)
+    update()
+    const obs = new ResizeObserver(update)
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
 
   useEffect(() => {
     QRCode.toDataURL(TARGET_URL, {
@@ -154,10 +166,10 @@ function App() {
       {/* ── Mobile app (hidden on desktop) ── */}
       <div className="md:hidden relative mx-auto min-h-screen max-w-md px-4 pb-28 z-10">
 
-        {/* Big bee — scrolls with content */}
+        {/* Big bee — scrolls with content, positioned below username */}
         <motion.div
           className="absolute pointer-events-none"
-          style={{ top: "60%" }}
+          style={{ top: beeTop || "60%" }}
           initial={{ x: "-160px" }}
           animate={{ x: "calc(40vw)" }}
           transition={{ duration: 4, ease: "easeOut" }}
@@ -172,6 +184,7 @@ function App() {
 
         {/* Title block — centred, nudged above midpoint */}
         <div
+          ref={titleRef}
           className="absolute inset-x-0 flex flex-col items-center gap-4"
           style={{ top: "25%" }}
         >
