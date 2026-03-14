@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { FaceLandmarker, FaceLandmarkerResult, NormalizedLandmark } from "@mediapipe/tasks-vision";
 import type { DriverState, EarCalibration, SmoothedMetrics } from "#/lib/driver-monitor-utils";
 import { useDriverEventLogger } from "#/hooks/useDriverEventLogger";
 import {
@@ -37,8 +38,7 @@ export default function DriverMonitor() {
   useEffect(() => {
     let animFrameId: number;
     let stream: MediaStream | null = null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let landmarker: any = null;
+    let landmarker: FaceLandmarker | null = null;
     let disposed = false;
 
     const s = {
@@ -157,16 +157,16 @@ export default function DriverMonitor() {
         s.lastFpsTime = now;
       }
 
-      let results: any;
+      let results: FaceLandmarkerResult;
       try {
-        results = landmarker.detectForVideo(video, now);
+        results = landmarker!.detectForVideo(video, now);
       } catch {
         animFrameId = requestAnimationFrame(detect);
         return;
       }
       const hasFace =
         results.faceLandmarks && results.faceLandmarks.length > 0;
-      const landmarks = hasFace ? results.faceLandmarks[0] : null;
+      const landmarks: NormalizedLandmark[] | null = hasFace ? results.faceLandmarks[0] : null;
 
       if (!hasFace) {
         s.noFaceFrames++;
@@ -248,7 +248,7 @@ export default function DriverMonitor() {
       disposed = true;
       cancelAnimationFrame(animFrameId);
       if (stream) stream.getTracks().forEach((t) => t.stop());
-      if (landmarker) (landmarker as any).close();
+      if (landmarker) landmarker.close();
     };
   }, []);
 

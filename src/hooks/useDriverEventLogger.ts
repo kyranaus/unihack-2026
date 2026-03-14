@@ -9,7 +9,6 @@ const STATE_SEVERITY: Record<DriverState, "info" | "warning" | "critical"> = {
   ALERT: "info",
   DROWSY: "warning",
   DISTRACTED: "warning",
-  ASLEEP: "critical",
   NO_FACE: "info",
 }
 
@@ -17,7 +16,6 @@ const STATE_SUMMARY: Record<DriverState, string> = {
   ALERT: "Driver alert and attentive",
   DROWSY: "Driver showing signs of drowsiness",
   DISTRACTED: "Driver distracted - not watching the road",
-  ASLEEP: "Driver appears to be asleep",
   NO_FACE: "Driver face not detected",
 }
 

@@ -19,11 +19,9 @@ function formatLocation(location: CrashLocation | null): string {
   }
   
   // Format coordinates for emergency services
-  const lat = location.latitude.toFixed(6);
-  const lng = location.longitude.toFixed(6);
   const latDir = location.latitude >= 0 ? "N" : "S";
   const lngDir = location.longitude >= 0 ? "E" : "W";
-  
+
   let locationStr = `coordinates ${Math.abs(location.latitude).toFixed(6)} degrees ${latDir}, ${Math.abs(location.longitude).toFixed(6)} degrees ${lngDir}`;
   
   if (location.accuracy !== null && location.accuracy < 100) {
