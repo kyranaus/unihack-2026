@@ -154,7 +154,10 @@ function ReplayPage() {
                   src={selected.url}
                   className="absolute inset-0 h-full w-full object-cover"
                   playsInline
-                  onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? selected.meta.duration)}
+                  onLoadedMetadata={() => {
+                    const d = videoRef.current?.duration;
+                    setDuration(d && Number.isFinite(d) ? d : selected.meta.duration);
+                  }}
                   onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime ?? 0)}
                   onEnded={() => setPlaying(false)}
                 />
