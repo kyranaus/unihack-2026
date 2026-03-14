@@ -1,5 +1,6 @@
 // src/server/overpass.ts
 const OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+const LOCATIONIQ_API_KEY = process.env.LOCATIONIQ_API_KEY
 
 export type PulloverSpot = {
   name: string
@@ -56,15 +57,23 @@ const AMENITY_LABELS: Record<string, string> = {
   parking_entrance: "Parking entrance",
 }
 
-function describeAmenity(tags: Record<string, string>): string {
-  const amenity = tags.amenity ?? tags.highway ?? "parking"
-  const base = AMENITY_LABELS[amenity] ?? amenity
-  const parts: string[] = [base]
-  if (tags.access === "yes" || tags.access === "public") parts.push("public access")
-  if (tags.fee === "no" || tags.parking_fee === "no") parts.push("free")
-  if (tags.lit === "yes") parts.push("lit")
-  if (tags.surface) parts.push(tags.surface + " surface")
-  return parts.join(" · ")
+async function reverseGeocode(lat: number, lon: number): Promise<string | null> {
+  if (!LOCATIONIQ_API_KEY) return null
+  try {
+    const res = await fetch(
+      `https://us1.locationiq.com/v1/reverse?key=${LOCATIONIQ_API_KEY}&lat=${lat}&lon=${lon}&format=json`,
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    const parts: string[] = []
+    if (data.address?.road) {
+      const houseNum = data.address?.house_number
+      parts.push(houseNum ? `${houseNum} ${data.address.road}` : data.address.road)
+    }
+    return parts.length > 0 ? parts.join(", ") : null
+  } catch {
+    return null
+  }
 }
 
 export async function findPulloverSpots(
@@ -103,7 +112,7 @@ out center tags;
     }>
   }
 
-  const spots: PulloverSpot[] = data.elements
+  const rawSpots = data.elements
     .map((el) => {
       const elLat = el.lat ?? el.center?.lat
       const elLon = el.lon ?? el.center?.lon
@@ -133,11 +142,36 @@ out center tags;
         lon: elLon,
         distanceMeters: Math.round(dist),
         distanceLabel: `${distLabel} ${dir}`,
-        address: streetAddr,
-      } satisfies PulloverSpot
+        osmAddress: streetAddr,
+      }
     })
-    .filter(Boolean) as PulloverSpot[]
+    .filter(Boolean) as Array<{
+      name: string
+      type: string
+      lat: number
+      lon: number
+      distanceMeters: number
+      distanceLabel: string
+      osmAddress: string | null
+    }>
 
-  spots.sort((a, b) => a.distanceMeters - b.distanceMeters)
-  return spots.slice(0, limit)
+  rawSpots.sort((a, b) => a.distanceMeters - b.distanceMeters)
+  const topSpots = rawSpots.slice(0, limit)
+
+  const spotsWithAddresses = await Promise.all(
+    topSpots.map(async (spot) => {
+      const geocodedAddress = await reverseGeocode(spot.lat, spot.lon)
+      return {
+        name: spot.name,
+        type: spot.type,
+        lat: spot.lat,
+        lon: spot.lon,
+        distanceMeters: spot.distanceMeters,
+        distanceLabel: spot.distanceLabel,
+        address: geocodedAddress ?? spot.osmAddress,
+      } satisfies PulloverSpot
+    }),
+  )
+
+  return spotsWithAddresses
 }
