@@ -26,25 +26,16 @@ export function useDriverEventLogger(
 ) {
   const prevStateRef = useRef<DriverState>(driverState)
   const lastLogTimeRef = useRef(0)
-  // Track whether we've logged the first face detection (ALERT) for this session
-  const hasLoggedFirstAlertRef = useRef(false)
 
   useEffect(() => {
     if (driverState === prevStateRef.current) return
     prevStateRef.current = driverState
 
-    if (driverState === "NO_FACE") return
+    if (driverState === "ALERT" || driverState === "NO_FACE") return
 
-    // Log the very first ALERT (face detected) once per session so endSession
-    // knows driver monitoring was active. Skip all subsequent ALERT transitions.
-    if (driverState === "ALERT") {
-      if (hasLoggedFirstAlertRef.current) return
-      hasLoggedFirstAlertRef.current = true
-    } else {
-      const now = Date.now()
-      if (now - lastLogTimeRef.current < COOLDOWN_MS) return
-      lastLogTimeRef.current = now
-    }
+    const now = Date.now()
+    if (now - lastLogTimeRef.current < COOLDOWN_MS) return
+    lastLogTimeRef.current = now
 
     const session = getActiveSession()
     if (!session) return

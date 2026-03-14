@@ -153,12 +153,6 @@ export const endSession = os
         score
       )
     }
-
-    // Only assign a driver score when driver monitoring was active (at least one
-    // driver_state event logged). Road-only sessions have no face detection and
-    // should not receive a score.
-    const hasDriverEvents = events.some((e) => e.type === "driver_state")
-    const score = hasDriverEvents ? computeScore(events) : null
     const cameras = [...new Set(events.map((e) => e.camera))]
 
     console.log(`[BeeSafe] Session ended: ${events.length} events, score=${score}, cameras=${cameras.join(",")}`)
