@@ -1,13 +1,35 @@
+# Dependencies
 node_modules
-.DS_Store
+
+# Build output
 dist
 dist-ssr
-*.local
-.env
+.output
 .nitro
+.vinxi
+
+# Framework caches
 .tanstack
 .wrangler
-.output
-.vinxi
 __unconfig*
+
+# Vercel
+.vercel
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+*.local
+*.swp
+*.swo
+*~
+
+# Misc
 todos.json
