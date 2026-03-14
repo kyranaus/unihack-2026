@@ -19,7 +19,9 @@ export function SaveRecordingDialog({ pending, sessionId, score, onDone }: Props
   const handleSave = async () => {
     setSaving(true);
     try {
-      await saveRecording(pending.blob, pending.duration, pending.mimeType, sessionId, score);
+      // Save front cam as main video, back cam stored alongside for replay PiP
+      const mainBlob = pending.frontBlob ?? pending.blob;
+      await saveRecording(mainBlob, pending.duration, pending.mimeType, sessionId, score, pending.backBlob);
     } catch (e) {
       console.error("Failed to save recording", e);
     }
