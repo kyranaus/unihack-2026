@@ -154,7 +154,7 @@ html.light {
   background-color: var(--component-bg);
   border: 1px solid var(--component-shadow);
   border-radius: 9999px;
-  padding: 0.5rem 0.75rem;
+  padding: 0.25rem 0.75rem;
   gap: 0.25rem;
 }
 
@@ -164,7 +164,7 @@ html.light {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 0.5rem 0.875rem;
+  padding: 0.35rem 0.875rem;
   border-radius: 9999px;
   border: none;
   background: transparent;
