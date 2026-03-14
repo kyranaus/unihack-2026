@@ -5,8 +5,33 @@ import { usePollyTTS } from "#/lib/use-polly-tts"
 
 export const Route = createFileRoute("/_authed/emergency")({ component: Emergency })
 
-const DEMO_NAME = "John Smith"
-const DEMO_LOCATION = "Princes Highway, near exit 42"
+type CrashLocation = {
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  heading: number | null;
+  speedKmh: number | null;
+}
+
+function formatLocation(location: CrashLocation | null): string {
+  if (!location || location.latitude === null || location.longitude === null) {
+    return "location unavailable";
+  }
+  
+  // Format coordinates for emergency services
+  const lat = location.latitude.toFixed(6);
+  const lng = location.longitude.toFixed(6);
+  const latDir = location.latitude >= 0 ? "N" : "S";
+  const lngDir = location.longitude >= 0 ? "E" : "W";
+  
+  let locationStr = `coordinates ${Math.abs(location.latitude).toFixed(6)} degrees ${latDir}, ${Math.abs(location.longitude).toFixed(6)} degrees ${lngDir}`;
+  
+  if (location.accuracy !== null && location.accuracy < 100) {
+    locationStr += `, accurate to ${Math.round(location.accuracy)} meters`;
+  }
+  
+  return locationStr;
+}
 
 function useTypewriter(text: string, enabled: boolean, speed = 80) {
   const [displayed, setDisplayed] = useState("")
@@ -35,14 +60,20 @@ function useTypewriter(text: string, enabled: boolean, speed = 80) {
 }
 
 function Emergency() {
+  const { user } = Route.useRouteContext()
   const [showNotification, setShowNotification] = useState(false)
   const [countdown, setCountdown] = useState(10)
   const [isCalling, setIsCalling] = useState(false)
   const [callDuration, setCallDuration] = useState(0)
+  const [crashLocation, setCrashLocation] = useState<CrashLocation | null>(null)
+  const [address, setAddress] = useState<string | null>(null)
+  const [addressLoading, setAddressLoading] = useState(false)
 
   const { speak, stop: stopTTS, status: ttsStatus } = usePollyTTS()
 
-  const emergencyMessage = `Hi, my name is ${DEMO_NAME}. I have been in an accident on the road at ${DEMO_LOCATION} and require emergency assistance.`
+  const userName = user.name || "John Smith"
+  const locationStr = address || formatLocation(crashLocation)
+  const emergencyMessage = `Hi, my name is ${userName}. I have been in an accident on the road at ${locationStr} and require emergency assistance.`
   const typedText = useTypewriter(emergencyMessage, isCalling, 80)
 
   useEffect(() => {
@@ -78,6 +109,18 @@ function Emergency() {
     if (typeof window === "undefined") return
     try {
       const fromCrash = window.sessionStorage.getItem("dashcam.crashTriggered")
+      const locationData = window.sessionStorage.getItem("dashcam.crashLocation")
+      
+      if (locationData) {
+        try {
+          const parsedLocation = JSON.parse(locationData) as CrashLocation
+          setCrashLocation(parsedLocation)
+          window.sessionStorage.removeItem("dashcam.crashLocation")
+        } catch {
+          // invalid JSON, ignore
+        }
+      }
+      
       if (fromCrash === "1") {
         window.sessionStorage.removeItem("dashcam.crashTriggered")
         setShowNotification(true)
@@ -88,6 +131,93 @@ function Emergency() {
       // ignore storage errors
     }
   }, [])
+  
+  // Capture current location if not already set (for manual trigger or fallback)
+  useEffect(() => {
+    if (crashLocation !== null) return
+    if (typeof window === "undefined" || !("geolocation" in navigator)) return
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCrashLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          heading: position.coords.heading,
+          speedKmh: position.coords.speed ? position.coords.speed * 3.6 : null,
+        })
+      },
+      (error) => {
+        console.warn("Failed to get location:", error)
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    )
+  }, [crashLocation])
+  
+  // Reverse geocode coordinates to address using LocationIQ
+  useEffect(() => {
+    if (!crashLocation || crashLocation.latitude === null || crashLocation.longitude === null) return
+    if (address !== null || addressLoading) return
+    
+    setAddressLoading(true)
+    
+    const lat = crashLocation.latitude
+    const lng = crashLocation.longitude
+    const apiKey = "pk.4e2f3069f3ec234e4efc2e6a1fe35caa"
+    
+    fetch(`https://us1.locationiq.com/v1/reverse?key=${apiKey}&lat=${lat}&lon=${lng}&format=json`)
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
+      .then(data => {
+        // Build a natural address for emergency services
+        const parts: string[] = []
+        
+        // Street address (most specific)
+        if (data.road) {
+          if (data.house_number) {
+            parts.push(`${data.house_number} ${data.road}`)
+          } else {
+            parts.push(data.road)
+          }
+        }
+        
+        // Suburb/locality
+        if (data.suburb) parts.push(data.suburb)
+        else if (data.quarter) parts.push(data.quarter)
+        else if (data.neighbourhood) parts.push(data.neighbourhood)
+        
+        // City
+        if (data.city) parts.push(data.city)
+        else if (data.town) parts.push(data.town)
+        else if (data.village) parts.push(data.village)
+        
+        // State
+        if (data.state) parts.push(data.state)
+        
+        // Postcode
+        if (data.postcode) parts.push(data.postcode)
+        
+        if (parts.length > 0) {
+          setAddress(parts.join(", "))
+        } else {
+          // Fallback to display_name if available
+          setAddress(data.display_name || formatLocation(crashLocation))
+        }
+        
+        setAddressLoading(false)
+      })
+      .catch(err => {
+        console.warn("Reverse geocoding failed:", err)
+        setAddress(formatLocation(crashLocation))
+        setAddressLoading(false)
+      })
+  }, [crashLocation, address, addressLoading])
 
   const triggerEmergency = () => {
     setShowNotification(true)
@@ -143,6 +273,41 @@ function Emergency() {
                   </>
                 )}
               </div>
+              
+              {crashLocation && crashLocation.latitude !== null && crashLocation.longitude !== null && (
+                <div className="mt-4 pt-4 border-t border-zinc-800">
+                  <p className="text-xs font-semibold text-zinc-500 mb-2">Location Details</p>
+                  
+                  {addressLoading && (
+                    <div className="flex items-center gap-2 text-xs text-zinc-400 mb-2">
+                      <span className="inline-block h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
+                      Looking up address...
+                    </div>
+                  )}
+                  
+                  {address && !addressLoading && (
+                    <div className="text-sm text-zinc-300 mb-3">
+                      {address}
+                    </div>
+                  )}
+                  
+                  <div className="font-mono text-xs text-zinc-500 space-y-1">
+                    <div>Lat: {crashLocation.latitude.toFixed(6)}</div>
+                    <div>Lng: {crashLocation.longitude.toFixed(6)}</div>
+                    {crashLocation.accuracy !== null && (
+                      <div>Accuracy: ±{Math.round(crashLocation.accuracy)}m</div>
+                    )}
+                  </div>
+                  <a
+                    href={`https://www.google.com/maps?q=${crashLocation.latitude},${crashLocation.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-block text-xs text-blue-400 hover:text-blue-300 underline"
+                  >
+                    View on Google Maps
+                  </a>
+                </div>
+              )}
             </div>
 
             <button
@@ -170,7 +335,7 @@ function Emergency() {
       </div>
 
       {showNotification && !isCalling && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-4 px-4 pointer-events-none">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-4 px-4 pointer-events-none">
           <div className="w-full max-w-sm pointer-events-auto animate-in slide-in-from-top duration-300">
             <div className="rounded-2xl bg-zinc-900 border border-zinc-800 shadow-2xl overflow-hidden">
               <div className="p-4">

@@ -154,13 +154,29 @@ export default function DriverMonitor() {
 
 	useFrameCapture(frontCamera.videoRef, frontRecorder.isRecording, handleFrameBatch);
 
-	const { speedKmh } = useSpeed();
+	const { speedKmh, latitude, longitude, accuracy, heading } = useSpeed();
 
 	const crash = useCrashDetection({
 		speedKmh,
 		onCrash: () => {
 			try {
 				if (typeof window !== "undefined") {
+					// Capture location at time of crash
+					const crashLocation = {
+						latitude,
+						longitude,
+						accuracy,
+						heading,
+						speedKmh,
+					};
+					
+					// Store crash location for emergency page
+					try {
+						window.sessionStorage.setItem("dashcam.crashLocation", JSON.stringify(crashLocation));
+					} catch {
+						// ignore storage errors
+					}
+					
 					// Simple prompt-style alert so the driver knows a crash was detected.
 					try {
 						window.alert("Crash detected. Opening emergency screen…");

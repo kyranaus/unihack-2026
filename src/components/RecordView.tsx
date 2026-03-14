@@ -159,13 +159,23 @@ export default function RecordView() {
   const { speak } = usePollyTTS();
   useDriverEventLogger(driverState, metrics, "front");
 
-  // GPS speed for crash detection context
-  const { speedKmh } = useSpeed();
+  // GPS speed and location for crash detection context
+  const { speedKmh, latitude, longitude, accuracy, heading } = useSpeed();
 
   // Crash detection (better accuracy than useCollisionDetection)
   const handleCrash = useCallback(async ({ g }: { g: number; speedKmh: number | null }) => {
     addLog(`CRASH: ${g.toFixed(1)}g impact detected`);
     const sessionId = sessionIdRef.current;
+    
+    // Capture location at time of crash
+    const crashLocation = {
+      latitude,
+      longitude,
+      accuracy,
+      heading,
+      speedKmh,
+    };
+    
     if (sessionId) {
       await client.logDriverEvent({
         sessionId,
@@ -174,11 +184,19 @@ export default function RecordView() {
         summary: `Collision detected - ${g.toFixed(1)}g impact`,
         severity: "critical",
         camera: "front",
-        metadata: { gForce: g },
+        metadata: { gForce: g, location: crashLocation },
       }).catch(console.error);
     }
+    
+    // Store crash location in session storage for emergency page
+    try {
+      window.sessionStorage.setItem("dashcam.crashLocation", JSON.stringify(crashLocation));
+    } catch {
+      // ignore storage errors
+    }
+    
     navigate({ to: "/emergency" as any });
-  }, [addLog, navigate]);
+  }, [addLog, navigate, latitude, longitude, accuracy, heading, speedKmh]);
 
   const crash = useCrashDetection({ speedKmh, onCrash: handleCrash });
 
