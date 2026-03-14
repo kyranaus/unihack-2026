@@ -72,11 +72,16 @@ export async function analyseFrames(
 }
 
 export async function summariseDrive(
-  events: { elapsedSec: number; summary: string; severity: string; type: string }[]
+  events: { elapsedSec: number; summary: string; severity: string; type: string }[],
+  score?: number | null
 ): Promise<string> {
   const eventList = events
     .map((e) => `[${Math.floor(e.elapsedSec / 60)}:${String(e.elapsedSec % 60).padStart(2, "0")}] (${e.type}/${e.severity}) ${e.summary}`)
     .join("\n")
+
+  const scoreContext = score != null
+    ? `The session score is ${score}/100. `
+    : ""
 
   const response = await getClient().chat.completions.create({
     model: "Qwen/Qwen2.5-VL-7B-Instruct-AWQ",
@@ -84,11 +89,11 @@ export async function summariseDrive(
     messages: [
       {
         role: "system",
-        content: "You summarise a driving session from event logs. Write 2-3 sentences covering: overall safety, notable incidents, and a recommendation. Be concise and constructive.",
+        content: `You summarise a driving session from event logs. Output 4-6 bullet points, one per line. Each line must start with "+" (positive/good) or "-" (negative/bad), followed by a space, then a short statement of 3-8 words. The ratio of negatives to positives must match the score: score <50 = 4-5 negatives 1 positive, score 50-70 = 3 negatives 2 positives, score 70-85 = 2 negatives 3 positives, score >85 = 1 negative 4+ positives. Be brutally honest — do not soften negatives with words like "intermittently" or "somewhat". Examples: "+ No drowsiness detected", "- Looked away from road often", "- Hard braking multiple times", "+ Maintained consistent speed". Output only the bullet lines, nothing else.`,
       },
       {
         role: "user",
-        content: `Here are the events from this drive:\n\n${eventList}\n\nSummarise this drive.`,
+        content: `${scoreContext}Here are the events from this drive:\n\n${eventList}\n\nSummarise this drive.`,
       },
     ],
   })

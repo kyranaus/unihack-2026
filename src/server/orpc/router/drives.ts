@@ -138,6 +138,8 @@ export const endSession = os
       orderBy: { elapsedSec: "asc" },
     })
 
+    const score = computeScore(events)
+
     let summary: string | null = null
     if (events.length > 0) {
       summary = await summariseDrive(
@@ -146,11 +148,10 @@ export const endSession = os
           summary: e.summary,
           severity: e.severity,
           type: e.type,
-        }))
+        })),
+        score
       )
     }
-
-    const score = computeScore(events)
     const cameras = [...new Set(events.map((e) => e.camera))]
 
     console.log(`[BeeSafe] Session ended: ${events.length} events, score=${score}, cameras=${cameras.join(",")}`)
