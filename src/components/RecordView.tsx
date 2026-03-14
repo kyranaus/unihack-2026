@@ -19,13 +19,12 @@ import { useFrameCapture } from "#/hooks/useFrameCapture";
 import { useDriverEventLogger } from "#/hooks/useDriverEventLogger";
 import { useCollisionDetection } from "#/hooks/useCollisionDetection";
 import { usePollyTTS } from "#/lib/use-polly-tts";
+import { useBackCamera } from "#/hooks/useBackCamera";
 import { driveSessionStore } from "#/hooks/useDriveSession";
 import { client } from "#/server/orpc/client";
 import { SaveRecordingDialog } from "#/components/SaveRecordingDialog";
 
 const MAX_RECORD_SECS = 5 * 60;
-
-const EAR_OPEN_REF = 0.32;
 
 const ALARM_SRC = "/denielcz-speed-limit-violation-alert-463066.mp3";
 
@@ -38,10 +37,16 @@ export default function RecordView() {
 
   const { start: startRec, stop: stopRec, pending: pendingRec, clearPending } = useRecording(streamRef);
   const { speak } = usePollyTTS();
+  const backCamera = useBackCamera();
+
+  useEffect(() => {
+    backCamera.startCamera();
+    return () => backCamera.stopCamera();
+  }, []);
 
   const [driverState, setDriverState] = useState<DriverState>("NO_FACE");
   const [metrics, setMetrics] = useState<SmoothedMetrics>({ ear: 0, yaw: 1, pitch: 0.7 });
-  const [fps, setFps] = useState(0);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -180,10 +185,7 @@ export default function RecordView() {
       alarmPlaying: false,
       noFaceFrames: 0,
       currentState: "NO_FACE" as DriverState,
-      frameCount: 0,
-      lastFpsTime: performance.now(),
       lastRenderTime: 0,
-      currentFps: 0,
     };
 
     async function init() {
@@ -231,12 +233,6 @@ export default function RecordView() {
       const ctx = canvas.getContext("2d");
       if (!ctx) { animFrameId = requestAnimationFrame(detect); return; }
 
-      s.frameCount++;
-      if (now - s.lastFpsTime >= 1000) {
-        s.currentFps = s.frameCount;
-        s.frameCount = 0;
-        s.lastFpsTime = now;
-      }
 
       const results = landmarker.detectForVideo(video, now);
       const hasFace = results.faceLandmarks && results.faceLandmarks.length > 0;
@@ -315,7 +311,7 @@ export default function RecordView() {
       if (now - s.lastRenderTime > CONFIG.RENDER_INTERVAL_MS) {
         setDriverState(s.currentState);
         setMetrics({ ear: s.smoothedEAR, yaw: s.smoothedYaw, pitch: s.smoothedPitch });
-        setFps(s.currentFps);
+
         s.lastRenderTime = now;
       }
       animFrameId = requestAnimationFrame(detect);
@@ -336,13 +332,8 @@ export default function RecordView() {
 
   const display = STATE_DISPLAY[driverState];
   const isWarning = driverState !== "ALERT";
+  const eyePct = Math.min(100, Math.round((metrics.ear / 0.32) * 100));
   const headDir = getHeadDirection(metrics.yaw, metrics.pitch);
-  const eyePct = Math.min(100, Math.round((metrics.ear / EAR_OPEN_REF) * 100));
-  const eyeOpen = metrics.ear >= CONFIG.EAR_THRESHOLD;
-  const yawOk = Math.abs(metrics.yaw - 1.0) <= CONFIG.YAW_THRESHOLD;
-  const pitchOk =
-    metrics.pitch <= CONFIG.PITCH_DOWN_THRESHOLD &&
-    metrics.pitch >= CONFIG.PITCH_UP_THRESHOLD;
 
   const recMins = Math.floor(recSeconds / 60).toString().padStart(2, "0");
   const recSecs = (recSeconds % 60).toString().padStart(2, "0");
@@ -362,7 +353,7 @@ export default function RecordView() {
   }
 
   return (
-    <div className="flex h-dvh flex-col bg-black pb-[88px]">
+    <div className="flex h-dvh flex-col bg-black">
       {/* Title */}
       <div
         className="flex flex-none items-center justify-center pb-2"
@@ -371,19 +362,34 @@ export default function RecordView() {
         <span className="text-base font-bold tracking-wide text-white">Record</span>
       </div>
 
-      {/* Video window */}
-      <div className="relative mx-3 min-h-0 flex-1 overflow-hidden rounded-2xl bg-zinc-900">
-        {/* Camera feed */}
+      {/* Video window — takes up most of screen height, padded from all edges */}
+      <div className="relative mx-3 mb-2 mt-1 h-[58vh] flex-none overflow-hidden rounded-2xl bg-zinc-900">
+        {/* Back camera — main or PiP */}
+        <video
+          ref={backCamera.videoRef}
+          className={activeCamera === "back"
+            ? "absolute inset-0 z-0 h-full w-full object-cover"
+            : "absolute top-3 left-3 z-10 h-28 w-20 rounded-xl object-cover ring-2 ring-white/30"}
+          playsInline
+          muted
+        />
+
+        {/* Front camera — main or PiP */}
         <video
           ref={videoRef}
-          className="absolute inset-0 h-full w-full object-cover"
+          className={activeCamera === "front"
+            ? "absolute inset-0 z-0 h-full w-full object-cover"
+            : "absolute top-3 left-3 z-10 h-28 w-20 rounded-xl object-cover ring-2 ring-white/30"}
           style={{ transform: "scaleX(-1)" }}
           playsInline
           muted
         />
+        {/* Face detection canvas — always follows front camera */}
         <canvas
           ref={canvasRef}
-          className="absolute inset-0 h-full w-full"
+          className={activeCamera === "front"
+            ? "absolute inset-0 z-1 h-full w-full"
+            : "absolute top-3 left-3 z-11 h-28 w-20 rounded-xl"}
           style={{ transform: "scaleX(-1)" }}
         />
 
@@ -396,35 +402,13 @@ export default function RecordView() {
           </div>
         )}
 
-        {/* Top bar: status badge centered + FPS right */}
-        {!loading && (
-          <div className="absolute left-0 right-0 top-0 z-10 flex items-center justify-end px-3 pt-3">
-            {/* Centered status / REC badge */}
-            <div className="absolute left-1/2 -translate-x-1/2">
-              {isRecording ? (
-                <div className="flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                  <span className="font-mono text-xs font-bold text-white">
-                    REC {recMins}:{recSecs}
-                  </span>
-                </div>
-              ) : (
-                <div
-                  className="rounded-full border px-3 py-1 text-xs font-bold tracking-widest backdrop-blur-md transition-colors duration-300"
-                  style={{
-                    borderColor: display.border,
-                    color: display.color,
-                    backgroundColor: display.bg,
-                  }}
-                >
-                  {display.label}
-                </div>
-              )}
-            </div>
-            {/* FPS — right */}
-            <div className="rounded-md bg-black/40 px-2 py-1 font-mono text-xs text-white/40 backdrop-blur-sm">
-              {fps} FPS
-            </div>
+        {/* REC indicator — top-left */}
+        {isRecording && (
+          <div className="absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+            <span className="font-mono text-xs font-bold text-white">
+              REC {recMins}:{recSecs}
+            </span>
           </div>
         )}
 
@@ -440,54 +424,48 @@ export default function RecordView() {
           </div>
         )}
 
-        {/* Switch camera button — bottom-right */}
-        <button
-          onClick={() => setActiveCamera((c) => (c === "front" ? "back" : "front"))}
-          className="absolute bottom-3 right-3 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm active:scale-95"
-        >
-          <RefreshCw size={16} />
-        </button>
-
-        {/* Metrics overlay — bottom */}
+        {/* Metrics strip — bottom of video */}
         {!loading && (
-          <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-3 pb-3 pt-14">
-            <div className="grid grid-cols-2 gap-2">
-              <MetricCard label="Eyes" value={`${eyePct}%`} sub={eyeOpen ? "Open" : "Closed"} color={eyeOpen ? "#22c55e" : "#ef4444"} />
-              <MetricCard label="Status" value={display.label} sub="driver state" color={display.color} />
-              <MetricCard label="Direction" value={headDir} sub={`yaw ${metrics.yaw.toFixed(2)}`} color={yawOk ? "#22c55e" : "#f59e0b"} />
-              <MetricCard
-                label="Tilt"
-                value={metrics.pitch > CONFIG.PITCH_DOWN_THRESHOLD ? "Down" : metrics.pitch < CONFIG.PITCH_UP_THRESHOLD ? "Up" : "Level"}
-                sub={`pitch ${metrics.pitch.toFixed(2)}`}
-                color={pitchOk ? "#22c55e" : "#f59e0b"}
-              />
-            </div>
+          <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-4 bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-8 pr-16">
+            <span className="text-[11px] font-semibold text-white/70">Eyes <span className="text-white">{eyePct}%</span></span>
+            <span className="text-[11px] font-semibold text-white/70">State <span style={{ color: display.color }}>{display.label}</span></span>
+            <span className="text-[11px] font-semibold text-white/70">Head <span className="text-white">{headDir}</span></span>
           </div>
         )}
+
+        {/* Switch camera — bottom-right */}
+        <button
+          type="button"
+          onClick={() => setActiveCamera((c) => (c === "front" ? "back" : "front"))}
+          className="absolute bottom-3 right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-transform active:scale-95"
+        >
+          <RefreshCw size={18} />
+        </button>
       </div>
 
       {/* Controls */}
-      <div className="flex flex-none flex-col items-center gap-3 py-4">
+      <div className="flex flex-none flex-col items-center gap-3 pb-6 pt-2">
         {/* Record button */}
         <button
+          type="button"
           onClick={() => setIsRecording((r) => !r)}
           disabled={loading}
-          className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-white active:scale-95 transition-transform disabled:opacity-30"
-          style={{ background: "transparent" }}
+          className={`flex h-20 w-20 items-center justify-center rounded-full border-4 border-white transition-transform active:scale-95 disabled:opacity-30 ${isRecording ? "animate-pulse" : ""}`}
           aria-label={isRecording ? "Stop recording" : "Start recording"}
         >
           <span
-            className={`h-10 w-10 rounded-full bg-red-500 transition-all ${isRecording ? "animate-pulse scale-90 rounded-lg" : ""}`}
+            className={`bg-red-500 transition-all duration-200 ${isRecording ? "h-8 w-8 rounded-lg" : "h-14 w-14 rounded-full"}`}
           />
         </button>
 
         {/* Front · Back toggle */}
-        <div className="flex items-center gap-0 rounded-full bg-white/10 p-0.5">
+        <div className="flex items-center rounded-full bg-white/10 p-0.5">
           {(["front", "back"] as const).map((cam) => (
             <button
               key={cam}
+              type="button"
               onClick={() => setActiveCamera(cam)}
-              className={`rounded-full px-4 py-1 text-xs font-semibold capitalize transition-colors ${
+              className={`rounded-full px-5 py-1.5 text-xs font-semibold capitalize transition-colors ${
                 activeCamera === cam ? "bg-white text-black" : "text-white/60"
               }`}
             >
@@ -498,8 +476,8 @@ export default function RecordView() {
 
         {/* Live AI log */}
         {liveLog.length > 0 && (
-          <div className="mx-3 mt-1 max-h-24 overflow-y-auto rounded-xl bg-zinc-900/90 border border-zinc-800 px-3 py-2">
-            <p className="text-[9px] font-semibold uppercase tracking-widest text-zinc-600 mb-1">Live Log</p>
+          <div className="mx-3 w-full max-h-24 overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900/90 px-3 py-2">
+            <p className="mb-1 text-[9px] font-semibold uppercase tracking-widest text-zinc-600">Live Log</p>
             {liveLog.map((line, i) => (
               <p key={i} className="font-mono text-[10px] leading-relaxed text-zinc-400">{line}</p>
             ))}
@@ -547,12 +525,3 @@ export default function RecordView() {
   );
 }
 
-function MetricCard({ label, value, sub, color }: { label: string; value: string; sub: string; color: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-2xl bg-white/8 py-3 backdrop-blur-sm">
-      <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">{label}</span>
-      <span className="mt-1 text-lg font-black leading-tight" style={{ color }}>{value}</span>
-      <span className="mt-0.5 text-[10px] text-white/30">{sub}</span>
-    </div>
-  );
-}
