@@ -60,6 +60,7 @@ export function useFaceDetection(
 				const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL);
 				if (disposed) return;
 
+			try {
 				landmarker = await FaceLandmarker.createFromOptions(vision, {
 					baseOptions: {
 						modelAssetPath: FACE_LANDMARKER_MODEL_URL,
@@ -70,10 +71,23 @@ export function useFaceDetection(
 					outputFaceBlendshapes: false,
 					outputFacialTransformationMatrixes: false,
 				});
-				if (disposed) {
-					landmarker.close();
-					return;
-				}
+			} catch {
+				console.warn("[FaceDetect] GPU delegate failed, falling back to CPU");
+				landmarker = await FaceLandmarker.createFromOptions(vision, {
+					baseOptions: {
+						modelAssetPath: FACE_LANDMARKER_MODEL_URL,
+						delegate: "CPU",
+					},
+					runningMode: "VIDEO",
+					numFaces: 1,
+					outputFaceBlendshapes: false,
+					outputFacialTransformationMatrixes: false,
+				});
+			}
+			if (disposed) {
+				landmarker.close();
+				return;
+			}
 
 				setIsModelLoading(false);
 				detect();
@@ -112,9 +126,15 @@ export function useFaceDetection(
 				s.lastFpsTime = now;
 			}
 
-			const results = landmarker.detectForVideo(video, now);
-			const hasFace = results.faceLandmarks && results.faceLandmarks.length > 0;
-			const landmarks = hasFace ? results.faceLandmarks[0] : null;
+		let results: any;
+		try {
+			results = landmarker.detectForVideo(video, now);
+		} catch {
+			animFrameId = requestAnimationFrame(detect);
+			return;
+		}
+		const hasFace = results.faceLandmarks && results.faceLandmarks.length > 0;
+		const landmarks = hasFace ? results.faceLandmarks[0] : null;
 
 			if (!hasFace) {
 				s.noFaceFrames++;

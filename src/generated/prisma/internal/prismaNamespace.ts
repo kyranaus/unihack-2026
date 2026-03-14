@@ -1042,6 +1042,7 @@ export const DriveSessionScalarFieldEnum = {
   summary: 'summary',
   score: 'score',
   cameras: 'cameras',
+  videoKey: 'videoKey',
   createdAt: 'createdAt'
 } as const
 

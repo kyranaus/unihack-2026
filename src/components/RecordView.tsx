@@ -32,6 +32,7 @@ import { client } from "#/server/orpc/client";
 import { getSupportedMimeType } from "#/lib/media-utils";
 import { SaveRecordingDialog } from "#/components/SaveRecordingDialog";
 import { CameraPicker } from "#/components/driver-monitor/CameraPicker";
+import { useStreamingUpload } from "#/hooks/use-streaming-upload";
 import type { PendingRecording } from "#/hooks/useRecording";
 import { DriverFeedback, type SessionData } from "#/components/DriverFeedback";
 
@@ -94,6 +95,12 @@ export default function RecordView() {
   const compositeChunksRef = useRef<Blob[]>([]);
   const drawLoopActiveRef = useRef(false);
   const compositeMainCamRef = useRef<"front" | "back">("back");
+  // On desktop (single webcam), fall back to sharing the front stream for recording
+  const backStream = backCamera.stream ?? frontStream;
+
+  // Streaming S3 upload (chunks uploaded during recording)
+  const streamUpload = useStreamingUpload();
+
 
   // State
   const [pendingRec, setPendingRec] = useState<PendingRecording | null>(null);
@@ -316,12 +323,15 @@ export default function RecordView() {
       compositeRecorderRef.current = compositeRecorder;
     }
     addLog("Starting session...");
-    client.startSession({}).then(({ sessionId }) => {
+    client.startSession({}).then(async ({ sessionId }) => {
       sessionIdRef.current = sessionId;
       driveSessionStore.setState(() => ({ sessionId, startedAt: Date.now() }));
       addLog(`Session started: ${sessionId.slice(0, 8)}...`);
+      const mimeType = getSupportedMimeType() || "video/webm";
+      await streamUpload.start(sessionId, "back", mimeType);
+      addLog("Cloud upload streaming...");
     }).catch((err) => addLog(`Session start FAILED: ${err}`));
-  }, [frontRecorder, backRecorder, addLog, isIOS, isSingleCam, activeCamera]);
+  }, [frontRecorder, backRecorder, addLog, isIOS, streamUpload, isSingleCam, activeCamera]);
 
   const handleStopRecording = useCallback(async () => {
     wantRecordingRef.current = false;
@@ -349,6 +359,10 @@ export default function RecordView() {
     if (sessionId) {
       lastSessionIdRef.current = sessionId;
       setEnding(true);
+      addLog("Finishing cloud upload...");
+      const uploaded = await streamUpload.finish();
+      addLog(uploaded ? "Cloud upload complete" : "Cloud upload skipped");
+
       addLog("Ending session, generating summary...");
       try {
         await client.endSession({ sessionId });
@@ -388,7 +402,7 @@ export default function RecordView() {
     if (blob) {
       setPendingRec({ blob, duration, mimeType: getSupportedMimeType() || "video/webm", frontBlob, backBlob });
     }
-  }, [frontRecorder, backRecorder, addLog, queryClient]);
+  }, [frontRecorder, backRecorder, addLog, queryClient, streamUpload]);
 
   // Keep ref up-to-date for auto-stop timer
   handleStopRecordingRef.current = handleStopRecording;
@@ -434,35 +448,70 @@ export default function RecordView() {
 
     async function init() {
       try {
+        console.log("[FaceDetect] Loading MediaPipe...");
         const { FaceLandmarker, FilesetResolver } = await import("@mediapipe/tasks-vision");
-        if (disposed) return;
-        const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL);
-        if (disposed) return;
-        landmarker = await FaceLandmarker.createFromOptions(vision, {
-          baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate: "GPU" },
-          runningMode: "VIDEO",
-          numFaces: 1,
-          outputFaceBlendshapes: false,
-          outputFacialTransformationMatrixes: false,
-        });
-        if (disposed) { landmarker.close(); return; }
+        if (disposed) { console.log("[FaceDetect] disposed after import"); return; }
 
+        console.log("[FaceDetect] Resolving WASM...");
+        const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_URL);
+        if (disposed) { console.log("[FaceDetect] disposed after WASM"); return; }
+
+        console.log("[FaceDetect] Creating landmarker...");
+        try {
+          landmarker = await FaceLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate: "GPU" },
+            runningMode: "VIDEO",
+            numFaces: 1,
+            outputFaceBlendshapes: false,
+            outputFacialTransformationMatrixes: false,
+          });
+        } catch {
+          console.warn("[FaceDetect] GPU delegate failed, falling back to CPU");
+          landmarker = await FaceLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: FACE_LANDMARKER_MODEL_URL, delegate: "CPU" },
+            runningMode: "VIDEO",
+            numFaces: 1,
+            outputFaceBlendshapes: false,
+            outputFacialTransformationMatrixes: false,
+          });
+        }
+        if (disposed) { landmarker.close(); console.log("[FaceDetect] disposed after landmarker"); return; }
+
+        console.log("[FaceDetect] Requesting camera...");
         const videoConstraint = driverDeviceId
           ? { deviceId: { exact: driverDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
           : { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } };
         stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraint });
-        if (disposed) { stream.getTracks().forEach((t) => t.stop()); return; }
+        if (disposed) { stream.getTracks().forEach((t) => t.stop()); console.log("[FaceDetect] disposed after getUserMedia"); return; }
 
+        console.log("[FaceDetect] Camera acquired, attaching to video element...");
         setFrontStream(stream);
         setFrontReady(true);
 
-        const video = videoRef.current;
-        if (!video) return;
+        let video = videoRef.current;
+        for (let i = 0; !video && i < 50; i++) {
+          await new Promise((r) => requestAnimationFrame(r));
+          if (disposed) { console.log("[FaceDetect] disposed waiting for video ref"); return; }
+          video = videoRef.current;
+        }
+        if (!video) {
+          console.error("[FaceDetect] videoRef never became available");
+          setLoading(false);
+          return;
+        }
         video.srcObject = stream;
-        await video.play();
+        try {
+          await video.play();
+        } catch (playErr) {
+          console.warn("[FaceDetect] video.play() failed, retrying muted:", playErr);
+          video.muted = true;
+          await video.play();
+        }
+        console.log("[FaceDetect] Video playing, starting detection loop");
         setLoading(false);
         detect();
       } catch (err) {
+        console.error("[FaceDetect] init error:", err);
         if (!disposed) {
           setError(err instanceof Error ? err.message : "Failed to initialize");
           setLoading(false);
@@ -482,7 +531,13 @@ export default function RecordView() {
       const ctx = canvas.getContext("2d");
       if (!ctx) { animFrameId = requestAnimationFrame(detect); return; }
 
-      const results = landmarker.detectForVideo(video, now);
+      let results: any;
+      try {
+        results = landmarker.detectForVideo(video, now);
+      } catch {
+        animFrameId = requestAnimationFrame(detect);
+        return;
+      }
       const hasFace = results.faceLandmarks && results.faceLandmarks.length > 0;
       const landmarks = hasFace ? results.faceLandmarks[0] : null;
 
