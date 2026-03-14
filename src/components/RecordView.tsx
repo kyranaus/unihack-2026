@@ -489,9 +489,10 @@ export default function RecordView() {
         {/* Back camera — main or PiP */}
         <video
           ref={backCamera.videoRef}
+          onClick={() => activeCamera === "front" && setActiveCamera("back")}
           className={activeCamera === "back"
             ? "absolute inset-0 z-0 h-full w-full object-cover"
-            : "absolute top-3 left-3 z-10 h-28 w-20 rounded-xl object-cover ring-2 ring-white/30"}
+            : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
           playsInline
           muted
         />
@@ -499,9 +500,10 @@ export default function RecordView() {
         {/* Front camera — main or PiP */}
         <video
           ref={videoRef}
+          onClick={() => activeCamera === "back" && setActiveCamera("front")}
           className={activeCamera === "front"
             ? "absolute inset-0 z-0 h-full w-full object-cover"
-            : "absolute top-3 left-3 z-10 h-28 w-20 rounded-xl object-cover ring-2 ring-white/30"}
+            : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
           style={{ transform: "scaleX(-1)" }}
           playsInline
           muted
@@ -510,9 +512,10 @@ export default function RecordView() {
         {/* Face detection canvas — always follows front camera */}
         <canvas
           ref={canvasRef}
+          onClick={() => activeCamera === "back" && setActiveCamera("front")}
           className={activeCamera === "front"
             ? "absolute inset-0 z-1 h-full w-full"
-            : "absolute top-3 left-3 z-11 h-28 w-20 rounded-xl"}
+            : "absolute top-3 left-3 z-11 h-28 w-20 cursor-pointer rounded-xl"}
           style={{ transform: "scaleX(-1)" }}
         />
 
