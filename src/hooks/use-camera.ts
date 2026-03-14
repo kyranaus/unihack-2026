@@ -1,15 +1,22 @@
 // src/hooks/use-camera.ts
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type CameraSource =
 	| { facingMode: "user" | "environment" }
 	| { deviceId: string };
 
-export function useCamera(source: CameraSource, enabled = true) {
+export function useCamera(
+	source: CameraSource,
+	enabled = true,
+	onTrackEnded?: () => void,
+) {
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const [stream, setStream] = useState<MediaStream | null>(null);
 	const [isReady, setIsReady] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+
+	const onTrackEndedRef = useRef(onTrackEnded);
+	onTrackEndedRef.current = onTrackEnded;
 
 	const deviceId = "deviceId" in source ? source.deviceId : undefined;
 	const facingMode = "facingMode" in source ? source.facingMode : undefined;
@@ -73,6 +80,12 @@ export function useCamera(source: CameraSource, enabled = true) {
 				if (!disposed) {
 					setStream(currentStream);
 					setIsReady(true);
+
+					for (const track of currentStream.getTracks()) {
+						track.onended = () => {
+							if (!disposed) onTrackEndedRef.current?.();
+						};
+					}
 				}
 			} catch (err) {
 				if (!disposed) {
@@ -125,5 +138,13 @@ export function useCamera(source: CameraSource, enabled = true) {
 		};
 	}, [deviceId, facingMode, enabled]);
 
-	return { videoRef, stream, isReady, error };
+	const stopStream = useCallback(() => {
+		if (stream) {
+			for (const t of stream.getTracks()) t.stop();
+		}
+		setStream(null);
+		setIsReady(false);
+	}, [stream]);
+
+	return { videoRef, stream, isReady, error, stopStream };
 }
