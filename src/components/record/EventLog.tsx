@@ -9,7 +9,7 @@ export type RoadEvent = {
 }
 
 const SEVERITY_STYLES = {
-  info: "border-zinc-700 bg-zinc-900/80 text-zinc-300",
+  info: "border-border bg-card/80 text-card-foreground",
   warning: "border-amber-800/60 bg-amber-950/60 text-amber-200",
   critical: "border-red-800/60 bg-red-950/60 text-red-200",
 } as const
@@ -40,12 +40,12 @@ export function EventLog({ events }: EventLogProps) {
             key={event.id}
             className={`flex items-start gap-2 rounded-xl border px-3 py-2 backdrop-blur-sm ${SEVERITY_STYLES[event.severity]}`}
           >
-            <span className="mt-0.5 shrink-0 font-mono text-[10px] text-zinc-500">
+            <span className="mt-0.5 shrink-0 font-mono text-[10px] text-muted-foreground">
               {event.time}
             </span>
             <p className="text-xs leading-relaxed">
               {event.analysing ? (
-                <span className="animate-pulse text-zinc-500">Analysing road...</span>
+                <span className="animate-pulse text-muted-foreground">Analysing road...</span>
               ) : (
                 event.summary
               )}
