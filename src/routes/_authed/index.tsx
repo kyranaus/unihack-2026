@@ -1,6 +1,6 @@
 // src/routes/_authed/index.tsx
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { lazy, useEffect, useState } from "react"
+import { lazy, useEffect, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import QRCode from "qrcode"
 
@@ -70,23 +70,6 @@ const PARTICLE_BEES_RIGHT = [
 function BeeAnimations() {
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-      {/* Big bee — flies in from left, stops just past the title, then bobs */}
-      <motion.div
-        className="absolute"
-        style={{ top: "60%" }}
-        initial={{ x: "-160px" }}
-        
-        animate={{ x: "calc(40vw)" }}
-        transition={{ duration: 4, ease: "easeOut" }}
-      >
-        <motion.div
-          animate={{ y: [0, -5, 0, 5, 0] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <DotLottieReact src="/flyingBee.lottie" autoplay loop style={{ width: 90, height: 90 }} />
-        </motion.div>
-      </motion.div>
-
       {/* Bottom-left particle bees */}
       {PARTICLE_BEES_LEFT.map((b, i) => (
         <motion.div
@@ -121,6 +104,18 @@ function App() {
   const { user } = Route.useRouteContext()
   const username = user.name || "Driver"
   const [qrDataUrl, setQrDataUrl] = useState<string>("")
+  const titleRef = useRef<HTMLDivElement>(null)
+  const [beeTop, setBeeTop] = useState(0)
+
+  useEffect(() => {
+    const el = titleRef.current
+    if (!el) return
+    const update = () => setBeeTop(el.offsetTop + el.offsetHeight + 16)
+    update()
+    const obs = new ResizeObserver(update)
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
 
   useEffect(() => {
     QRCode.toDataURL(TARGET_URL, {
@@ -171,8 +166,25 @@ function App() {
       {/* ── Mobile app (hidden on desktop) ── */}
       <div className="md:hidden relative mx-auto min-h-screen max-w-md px-4 pb-28 z-10">
 
+        {/* Big bee — scrolls with content, positioned below username */}
+        <motion.div
+          className="absolute pointer-events-none"
+          style={{ top: beeTop || "60%" }}
+          initial={{ x: "-160px" }}
+          animate={{ x: "calc(40vw)" }}
+          transition={{ duration: 4, ease: "easeOut" }}
+        >
+          <motion.div
+            animate={{ y: [0, -5, 0, 5, 0] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <DotLottieReact src="/flyingBee.lottie" autoplay loop style={{ width: 90, height: 90 }} />
+          </motion.div>
+        </motion.div>
+
         {/* Title block — centred, nudged above midpoint */}
         <div
+          ref={titleRef}
           className="absolute inset-x-0 flex flex-col items-center gap-4"
           style={{ top: "25%" }}
         >
