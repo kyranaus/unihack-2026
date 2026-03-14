@@ -100,7 +100,7 @@ export default function RecordView() {
   const [driverState, setDriverState] = useState<DriverState>("NO_FACE");
   const [metrics, setMetrics] = useState<SmoothedMetrics>({ ear: 0, yaw: 1, pitch: 0.7 });
   const [calSamples, setCalSamples] = useState(0);
-  const [earThreshold, setEarThreshold] = useState(CONFIG.EAR_THRESHOLD);
+  const [earThreshold, setEarThreshold] = useState<number>(CONFIG.EAR_THRESHOLD);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recSeconds, setRecSeconds] = useState(0);

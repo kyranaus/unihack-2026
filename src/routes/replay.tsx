@@ -15,6 +15,7 @@ export const Route = createFileRoute("/replay")({
 });
 
 function fmt(s: number) {
+  if (!Number.isFinite(s) || isNaN(s)) return "0:00";
   const t = Math.floor(s);
   return `${Math.floor(t / 60)}:${(t % 60).toString().padStart(2, "0")}`;
 }
@@ -166,7 +167,14 @@ function ReplayPage() {
                       : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
                     onClick={() => activeCamera === "back" && setActiveCamera("front")}
                     playsInline
-                    onLoadedMetadata={() => setDuration(frontVideoRef.current?.duration ?? selected.meta.duration)}
+                    onLoadedMetadata={() => {
+                      const vidDuration = frontVideoRef.current?.duration;
+                      setDuration(
+                        vidDuration && Number.isFinite(vidDuration) 
+                          ? vidDuration 
+                          : selected.meta.duration
+                      );
+                    }}
                     onTimeUpdate={() => setCurrentTime(frontVideoRef.current?.currentTime ?? 0)}
                     onEnded={() => setPlaying(false)}
                   />
