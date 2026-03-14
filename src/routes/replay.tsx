@@ -1,6 +1,7 @@
 // src/routes/replay.tsx
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useState, useRef, useCallback, useEffect } from "react";
+import { z } from "zod";
 import { Play, Pause, BarChart2, Clock, Download, Zap } from "lucide-react";
 import { DriverFeedback } from "#/components/DriverFeedback";
 import type { SessionData } from "#/components/DriverFeedback";
@@ -8,7 +9,10 @@ import { listRecordings, getRecording } from "#/lib/replay-store";
 import type { RecordingMeta } from "#/lib/replay-store";
 import { client } from "#/server/orpc/client";
 
-export const Route = createFileRoute("/replay")({ component: ReplayPage });
+export const Route = createFileRoute("/replay")({
+  component: ReplayPage,
+  validateSearch: z.object({ t: z.number().optional() }),
+});
 
 function fmt(s: number) {
   const t = Math.floor(s);
@@ -36,6 +40,7 @@ interface DriveEntry {
 }
 
 function ReplayPage() {
+  const { t: refreshKey } = useSearch({ from: "/replay" });
   const [drives, setDrives] = useState<DriveEntry[]>([]);
   const [loadingDrives, setLoadingDrives] = useState(true);
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -48,42 +53,39 @@ function ReplayPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
-  // Load recordings from IndexedDB
-  useEffect(() => {
-    let cancelled = false;
-    const urls: string[] = [];
-
-    async function load() {
-      try {
-        const metas = await listRecordings();
-        if (cancelled) return;
-
-        const entries: DriveEntry[] = await Promise.all(
-          metas.map(async (meta) => {
-            const rec = await getRecording(meta.id);
-            const url = rec ? URL.createObjectURL(rec.videoBlob) : "";
-            if (url) urls.push(url);
-            return { meta, url };
-          })
-        );
-
-        if (!cancelled) {
-          setDrives(entries);
-          setSelectedIdx(0);
-        }
-      } catch (e) {
-        console.error("Failed to load recordings", e);
-      } finally {
-        if (!cancelled) setLoadingDrives(false);
-      }
+  const loadDrives = useCallback(async () => {
+    setLoadingDrives(true);
+    try {
+      const metas = await listRecordings();
+      const entries: DriveEntry[] = await Promise.all(
+        metas.map(async (meta) => {
+          const rec = await getRecording(meta.id);
+          const url = rec ? URL.createObjectURL(rec.videoBlob) : "";
+          return { meta, url };
+        })
+      );
+      setDrives((prev) => {
+        prev.forEach((d) => { if (d.url) URL.revokeObjectURL(d.url); });
+        return entries;
+      });
+      setSelectedIdx(0);
+    } catch (e) {
+      console.error("Failed to load recordings", e);
+    } finally {
+      setLoadingDrives(false);
     }
-
-    load();
-    return () => {
-      cancelled = true;
-      urls.forEach((u) => URL.revokeObjectURL(u));
-    };
   }, []);
+
+  // Reload on mount, when refreshKey changes (navigated from record page), or on window focus
+  useEffect(() => {
+    loadDrives();
+  }, [loadDrives, refreshKey]);
+
+  useEffect(() => {
+    const onFocus = () => loadDrives();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [loadDrives]);
 
   // Reset video state when selected drive changes
   useEffect(() => {

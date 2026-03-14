@@ -448,7 +448,13 @@ export default function DriverMonitor() {
 					pending={pendingRec}
 					sessionId={lastSessionIdRef.current}
 					score={sessionScore}
-					onDone={() => { setPendingRec(null); setSessionScore(null); lastSessionIdRef.current = null; }}
+					onDone={() => {
+						setPendingRec(null);
+						setSessionScore(null);
+						setDriveSummary(null);
+						lastSessionIdRef.current = null;
+						navigate({ to: "/replay", search: { t: Date.now() } });
+					}}
 				/>
 			)}
 		</div>

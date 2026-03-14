@@ -41,6 +41,13 @@ function LoginPage() {
             Continue with Google
           </button>
 
+          <button
+            onClick={() => navigate({ to: "/driver-monitor" })}
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Skip for now
+          </button>
+
           <p className="text-center text-[10px] text-muted-foreground">
             By continuing, you agree to BeeSafe's Terms &amp; Privacy Policy
           </p>
