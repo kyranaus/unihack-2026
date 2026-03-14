@@ -150,3 +150,45 @@ export const getSession = os
 
     return session
   })
+
+export const getProfileStats = os.input(z.object({})).handler(async () => {
+  const sessions = await prisma.driveSession.findMany({
+    where: { endedAt: { not: null } },
+    orderBy: { startedAt: "desc" },
+    include: { events: true },
+  })
+
+  const totalDrives = sessions.length
+  const avgScore = sessions.length > 0
+    ? Math.round(sessions.reduce((sum, s) => sum + (s.score ?? 0), 0) / sessions.length)
+    : 0
+
+  const totalHours = sessions.reduce((sum, s) => {
+    if (!s.endedAt) return sum
+    const durationMs = s.endedAt.getTime() - s.startedAt.getTime()
+    return sum + durationMs / (1000 * 60 * 60)
+  }, 0)
+
+  const recentDrives = sessions.slice(0, 5).map((s) => ({
+    id: s.id,
+    startedAt: s.startedAt,
+    endedAt: s.endedAt,
+    score: s.score ?? 0,
+    duration: s.endedAt
+      ? Math.round((s.endedAt.getTime() - s.startedAt.getTime()) / 1000)
+      : 0,
+  }))
+
+  const previousAvgScore = sessions.length > 5
+    ? Math.round(sessions.slice(5, 10).reduce((sum, s) => sum + (s.score ?? 0), 0) / Math.min(5, sessions.length - 5))
+    : avgScore
+  const scoreTrend = avgScore - previousAvgScore
+
+  return {
+    totalDrives,
+    avgScore,
+    totalHours: Math.round(totalHours * 10) / 10,
+    recentDrives,
+    scoreTrend,
+  }
+})
