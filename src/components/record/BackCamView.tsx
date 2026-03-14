@@ -174,15 +174,15 @@ export function BackCamView() {
 
       {/* Drive summary overlay */}
       {driveSummary && !isRecording && (
-        <div className="absolute inset-x-4 top-20 z-20 rounded-2xl border border-zinc-700 bg-zinc-900/95 p-4 backdrop-blur-sm">
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
+        <div className="absolute inset-x-4 top-20 z-20 rounded-2xl border border-border bg-card/95 p-4 backdrop-blur-sm">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             Drive Summary
           </p>
-          <p className="text-sm leading-relaxed text-zinc-200">{driveSummary}</p>
+          <p className="text-sm leading-relaxed text-card-foreground">{driveSummary}</p>
           <button
             type="button"
             onClick={() => setDriveSummary(null)}
-            className="mt-3 w-full rounded-lg bg-zinc-800 py-2 text-xs font-medium text-zinc-300"
+            className="mt-3 w-full rounded-lg bg-secondary py-2 text-xs font-medium text-secondary-foreground"
           >
             Dismiss
           </button>
@@ -190,20 +190,20 @@ export function BackCamView() {
       )}
 
       {ending && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80">
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-600 border-t-white" />
-            <p className="text-sm text-zinc-400">Generating drive summary...</p>
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-foreground" />
+            <p className="text-sm text-muted-foreground">Generating drive summary...</p>
           </div>
         </div>
       )}
 
-      <div className="flex items-center justify-center bg-black px-4 py-6">
+      <div className="flex items-center justify-center bg-background px-4 py-6">
         <button
           type="button"
           onClick={toggleRecording}
           disabled={status !== "active" || ending}
-          className="group relative flex h-[72px] w-[72px] items-center justify-center rounded-full border-[3px] border-zinc-600 transition-all disabled:opacity-40"
+          className="group relative flex h-[72px] w-[72px] items-center justify-center rounded-full border-[3px] border-border transition-all disabled:opacity-40"
         >
           <span
             className={`block transition-all ${

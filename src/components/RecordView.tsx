@@ -124,6 +124,8 @@ export default function RecordView() {
 
   const sessionIdRef = useRef<string | null>(null);
   const recSecondsRef = useRef(0);
+  const speedKmhRef = useRef<number | null>(null);
+  const speedTrackRef = useRef<Array<{ elapsedSec: number; speedKmh: number }>>([]);
   const lastTTSWarningRef = useRef(0);
   const lastSessionIdRef = useRef<string | null>(null);
   const handleStopRecordingRef = useRef<() => void>(() => {});
@@ -161,6 +163,9 @@ export default function RecordView() {
 
   // GPS speed and location for crash detection context
   const { speedKmh, latitude, longitude, accuracy, heading } = useSpeed();
+
+  // Keep ref in sync for use inside timer callback
+  useEffect(() => { speedKmhRef.current = speedKmh; }, [speedKmh]);
 
   // Crash detection (better accuracy than useCollisionDetection)
   const handleCrash = useCallback(async ({ g }: { g: number; speedKmh: number | null }) => {
@@ -245,11 +250,18 @@ export default function RecordView() {
 
   // REC timer + auto-stop at 5 min
   useEffect(() => {
-    if (!isRecording) { setRecSeconds(0); recSecondsRef.current = 0; return; }
+    if (!isRecording) {
+      setRecSeconds(0);
+      recSecondsRef.current = 0;
+      speedTrackRef.current = [];
+      return;
+    }
     const id = setInterval(() => {
       setRecSeconds((s) => {
         const next = s + 1;
         recSecondsRef.current = next;
+        const spd = speedKmhRef.current;
+        if (spd != null) speedTrackRef.current.push({ elapsedSec: next, speedKmh: spd });
         if (next >= MAX_RECORD_SECS) {
           handleStopRecordingRef.current();
           return 0;
@@ -418,8 +430,10 @@ export default function RecordView() {
 
     const blob = compositeBlob ?? backBlob ?? frontBlob;
     if (blob) {
-      setPendingRec({ blob, duration, mimeType: getSupportedMimeType() || "video/webm", frontBlob, backBlob });
+      setPendingRec({ blob, duration, mimeType: getSupportedMimeType() || "video/webm", frontBlob, backBlob, speedTrack: [...speedTrackRef.current] });
     }
+
+    setLiveLog([]);
   }, [frontRecorder, backRecorder, addLog, queryClient, streamUpload]);
 
   // Keep ref up-to-date for auto-stop timer
@@ -692,11 +706,11 @@ export default function RecordView() {
 
   if (error) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 bg-black p-6">
+      <div className="flex h-full flex-col items-center justify-center gap-4 bg-background p-6">
         <div className="rounded-2xl border border-red-800 bg-red-950 p-6 text-center">
           <p className="text-lg font-semibold text-red-400">Camera Error</p>
           <p className="mt-2 text-sm text-red-300">{error}</p>
-          <p className="mt-2 text-xs text-white/40">
+          <p className="mt-2 text-xs text-foreground/40">
             Allow camera access and ensure no other app is using the webcam.
           </p>
         </div>
@@ -705,14 +719,14 @@ export default function RecordView() {
   }
 
   return (
-    <div className="flex h-dvh flex-col bg-black">
+    <div className="flex h-dvh flex-col bg-background">
       {/* Title */}
       <div
         className="flex flex-none items-center justify-between px-4 pb-2"
         style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
       >
         {/* Front · Back toggle */}
-        <div className="flex items-center rounded-full bg-white/10 p-0.5">
+        <div className="flex items-center rounded-full bg-foreground/10 p-0.5">
           {(["front", "back"] as const).map((cam) => (
             <button
               key={cam}
@@ -721,19 +735,19 @@ export default function RecordView() {
                 if (cam !== activeCamera) handleFlipCamera();
               }}
               className={`rounded-full px-3 py-1 text-xs font-semibold capitalize transition-colors ${
-                activeCamera === cam ? "bg-white text-black" : "text-white/60"
+                activeCamera === cam ? "bg-foreground text-background" : "text-foreground/60"
               }`}
             >
               {cam}
             </button>
           ))}
         </div>
-        <span className="text-base font-bold tracking-wide text-white">Record</span>
+        <span className="text-base font-bold tracking-wide text-foreground">Record</span>
         <div className="w-16 text-right">
-          <span className="font-mono text-sm font-bold text-white">
+          <span className="font-mono text-sm font-bold text-foreground">
             {speedKmh != null ? Math.round(speedKmh) : "–"}
           </span>
-          <span className="text-[10px] text-white/50"> km/h</span>
+          <span className="text-[10px] text-foreground/50"> km/h</span>
         </div>
       </div>
 
@@ -934,7 +948,7 @@ export default function RecordView() {
           type="button"
           onClick={() => isRecording ? handleStopRecording() : handleStartRecording()}
           disabled={loading}
-          className={`flex h-20 w-20 items-center justify-center rounded-full border-4 border-white transition-transform active:scale-95 disabled:opacity-30 ${isRecording ? "animate-pulse" : ""}`}
+          className={`flex h-20 w-20 items-center justify-center rounded-full border-4 border-foreground transition-transform active:scale-95 disabled:opacity-30 ${isRecording ? "animate-pulse" : ""}`}
           aria-label={isRecording ? "Stop recording" : "Start recording"}
         >
           <span
@@ -944,10 +958,10 @@ export default function RecordView() {
 
         {/* Live log */}
         {liveLog.length > 0 && (
-          <div className="mx-3 w-full max-h-24 overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-900/90 px-3 py-2">
-            <p className="mb-1 text-[9px] font-semibold uppercase tracking-widest text-zinc-600">Live Log</p>
+          <div className="mx-3 w-full max-h-24 overflow-y-auto rounded-xl border border-border bg-card px-3 py-2">
+            <p className="mb-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">Live Log</p>
             {liveLog.map((line, i) => (
-              <p key={i} className="font-mono text-[10px] leading-relaxed text-zinc-400">{line}</p>
+              <p key={i} className="font-mono text-[10px] leading-relaxed text-foreground/70">{line}</p>
             ))}
           </div>
         )}
@@ -961,10 +975,10 @@ export default function RecordView() {
       />
 
       {ending && (
-        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/80">
+        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-600 border-t-white" />
-            <p className="text-sm text-zinc-400">Generating drive summary...</p>
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-foreground" />
+            <p className="text-sm text-muted-foreground">Generating drive summary...</p>
           </div>
         </div>
       )}
