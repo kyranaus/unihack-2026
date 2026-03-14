@@ -216,19 +216,25 @@ export default function DriverMonitor() {
 		]);
 
 		const sessionId = sessionIdRef.current;
+		let finalScore: number | null = null;
+
 		if (sessionId) {
 			lastSessionIdRef.current = sessionId;
 			setEnding(true);
 			addLog("Ending session, generating summary...");
-			client.endSession({ sessionId }).then(({ summary, score }) => {
+			try {
+				const { summary, score } = await client.endSession({ sessionId });
 				setDriveSummary(summary);
-				setSessionScore(score ?? null);
+				finalScore = score ?? null;
+				setSessionScore(finalScore);
 				addLog(`Session ended: score=${score}, events logged`);
-			}).catch((err) => addLog(`End session FAILED: ${err}`)).finally(() => {
+			} catch (err) {
+				addLog(`End session FAILED: ${err}`);
+			} finally {
 				setEnding(false);
 				sessionIdRef.current = null;
 				driveSessionStore.setState(() => ({ sessionId: null, startedAt: null }));
-			});
+			}
 		}
 
 		const blob = backBlob ?? frontBlob;
