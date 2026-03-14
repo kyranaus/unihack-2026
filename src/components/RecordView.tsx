@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import type { DriverState, SmoothedMetrics } from "#/lib/driver-monitor-utils";
 import {
   CONFIG,
@@ -28,6 +29,7 @@ import { getSupportedMimeType } from "#/lib/media-utils";
 import { SaveRecordingDialog } from "#/components/SaveRecordingDialog";
 import { CameraPicker } from "#/components/driver-monitor/CameraPicker";
 import type { PendingRecording } from "#/hooks/useRecording";
+import { DriverFeedback, type SessionData } from "#/components/DriverFeedback";
 
 const MAX_RECORD_SECS = 5 * 60;
 const ALARM_SRC = "/denielcz-speed-limit-violation-alert-463066.mp3";
@@ -55,6 +57,7 @@ export default function RecordView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const alarmRef = useRef<HTMLAudioElement | null>(null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // Camera device selection
   const devices = useCameraDevices();
@@ -82,7 +85,8 @@ export default function RecordView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recSeconds, setRecSeconds] = useState(0);
-  const [driveSummary, setDriveSummary] = useState<string | null>(null);
+  const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [showReport, setShowReport] = useState(false);
   const [ending, setEnding] = useState(false);
   const [sessionScore, setSessionScore] = useState<number | null>(null);
   const [liveLog, setLiveLog] = useState<string[]>([]);
@@ -233,10 +237,30 @@ export default function RecordView() {
       setEnding(true);
       addLog("Ending session, generating summary...");
       try {
-        const { summary, score } = await client.endSession({ sessionId });
-        setDriveSummary(summary);
-        setSessionScore(score ?? null);
-        addLog(`Session ended: score=${score}, events logged`);
+        await client.endSession({ sessionId });
+        addLog("Fetching full session report...");
+        const data = await client.getSession({ sessionId });
+        setSessionData({
+          id: data.id,
+          score: data.score,
+          summary: data.summary,
+          cameras: data.cameras,
+          startedAt: data.startedAt.toISOString ? data.startedAt.toISOString() : String(data.startedAt),
+          endedAt: data.endedAt ? (data.endedAt.toISOString ? data.endedAt.toISOString() : String(data.endedAt)) : null,
+          events: data.events.map((e: any) => ({
+            id: e.id,
+            type: e.type,
+            camera: e.camera,
+            elapsedSec: e.elapsedSec,
+            summary: e.summary,
+            severity: e.severity,
+            metadata: e.metadata,
+          })),
+        });
+        setSessionScore(data.score ?? null);
+        setShowReport(true);
+        addLog(`Session ended: score=${data.score}, events logged`);
+        queryClient.invalidateQueries({ queryKey: ["profileStats"] });
       } catch (err) {
         addLog(`End session FAILED: ${err}`);
       } finally {
@@ -250,7 +274,7 @@ export default function RecordView() {
     if (blob) {
       setPendingRec({ blob, duration, mimeType: getSupportedMimeType() || "video/webm" });
     }
-  }, [frontRecorder, backRecorder, addLog]);
+  }, [frontRecorder, backRecorder, addLog, queryClient]);
 
   // Keep ref up-to-date for auto-stop timer
   handleStopRecordingRef.current = handleStopRecording;
@@ -655,16 +679,12 @@ export default function RecordView() {
         )}
       </div>
 
-      {/* Drive summary overlay */}
-      {driveSummary && !isRecording && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="rounded-2xl border border-white/10 bg-zinc-900 px-6 py-5 mx-4 w-full max-w-sm">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500 mb-2">AI Drive Summary</p>
-            <p className="text-sm leading-relaxed text-zinc-200">{driveSummary}</p>
-            <button type="button" onClick={() => setDriveSummary(null)} className="mt-4 w-full rounded-xl bg-white/10 py-3 text-sm font-semibold text-white">Dismiss</button>
-          </div>
-        </div>
-      )}
+      {/* Drive report modal */}
+      <DriverFeedback
+        isOpen={showReport}
+        sessionData={sessionData}
+        onClose={() => { setShowReport(false); setSessionData(null); }}
+      />
 
       {ending && (
         <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/80">
