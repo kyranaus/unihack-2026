@@ -1,32 +1,37 @@
 // src/routes/profile.tsx
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Moon, Sun, TrendingUp, Shield, Zap, Star, Award, LogOut } from "lucide-react";
+import { Moon, Sun, TrendingUp, TrendingDown, LogOut } from "lucide-react";
 import { authClient } from "#/lib/auth-client";
+import { client } from "#/server/orpc/client";
+import { useQuery } from "@tanstack/react-query";
+import { DriverFeedback } from "#/components/DriverFeedback";
+import type { SessionData } from "#/components/DriverFeedback";
 
 export const Route = createFileRoute("/profile")({ component: ProfilePage });
 
-const DRIVER_SCORE = 85;
-const SCORE_TREND = +3;
+function relDate(ts: Date | string): string {
+  const date = typeof ts === "string" ? new Date(ts) : ts;
+  const diff = Math.floor((Date.now() - date.getTime()) / 86400000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  return date.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
+}
 
-const STATS = [
-  { label: "Drives", value: "24" },
-  { label: "Hours", value: "18.4" },
-  { label: "Km", value: "312" },
-];
+function fmtTime(ts: Date | string): string {
+  const date = typeof ts === "string" ? new Date(ts) : ts;
+  return date.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true });
+}
 
-const ACHIEVEMENTS = [
-  { icon: Shield, label: "Safe Driver" },
-  { icon: Zap, label: "5-Day Streak" },
-  { icon: Star, label: "Night Owl" },
-  { icon: Award, label: "First Drive" },
-];
+function fmt(sec: number) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
-const RECENT_DRIVES = [
-  { label: "Today", time: "8:42 AM · 14 min", score: 91, color: "#22c55e" },
-  { label: "Yesterday", time: "6:15 PM · 32 min", score: 78, color: "#f59e0b" },
-  { label: "Mon 10 Mar", time: "9:00 AM · 21 min", score: 88, color: "#22c55e" },
-];
+function scoreColor(score: number): string {
+  return score >= 85 ? "#22c55e" : score >= 70 ? "#f59e0b" : "#ef4444";
+}
 
 function ScoreArc({ score }: { score: number }) {
   const r = 40;
@@ -48,6 +53,15 @@ function ProfilePage() {
   const [light, setLight] = useState(() =>
     document.documentElement.classList.contains("light")
   );
+  const [showReport, setShowReport] = useState(false);
+  const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
+
+  const { data: profileStats, isLoading: loadingStats } = useQuery({
+    queryKey: ["profileStats"],
+    queryFn: () => client.getProfileStats({}),
+    refetchOnWindowFocus: true,
+  });
 
   useEffect(() => {
     const html = document.documentElement;
@@ -68,10 +82,48 @@ function ProfilePage() {
   }
 
   const USERNAME = session.user.name || "Driver";
+  const DRIVER_SCORE = profileStats?.avgScore ?? 0;
+  const SCORE_TREND = profileStats?.scoreTrend ?? 0;
+  
+  const STATS = [
+    { label: "Drives", value: String(profileStats?.totalDrives ?? 0) },
+    { label: "Hours", value: String(profileStats?.totalHours ?? 0) },
+    { label: "Km", value: "—" },
+  ];
 
   const handleSignOut = async () => {
     await authClient.signOut();
     navigate({ to: "/login" });
+  };
+
+  const handleDriveClick = async (sessionId: string) => {
+    setLoadingReport(true);
+    try {
+      const data = await client.getSession({ sessionId });
+      setSessionData({
+        id: data.id,
+        score: data.score,
+        summary: data.summary,
+        cameras: data.cameras,
+        startedAt: data.startedAt.toISOString ? data.startedAt.toISOString() : String(data.startedAt),
+        endedAt: data.endedAt ? (data.endedAt.toISOString ? data.endedAt.toISOString() : String(data.endedAt)) : null,
+        events: data.events.map((e: any) => ({
+          id: e.id,
+          type: e.type,
+          camera: e.camera,
+          elapsedSec: e.elapsedSec,
+          summary: e.summary,
+          severity: e.severity,
+          metadata: e.metadata,
+        })),
+      });
+      setShowReport(true);
+    } catch (err) {
+      console.error("Failed to fetch session:", err);
+      setSessionData(null);
+    } finally {
+      setLoadingReport(false);
+    }
   };
 
   return (
@@ -110,22 +162,32 @@ function ProfilePage() {
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-3">
                 Driver score
               </p>
-              <div className="flex items-center gap-5">
-                <div className="relative flex items-center justify-center">
-                  <ScoreArc score={DRIVER_SCORE} />
-                  <span className="absolute text-2xl font-black">{DRIVER_SCORE}</span>
+              {loadingStats ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-primary" />
                 </div>
-                <div className="flex flex-col gap-1">
-                  <p className="text-sm font-semibold text-foreground">Good driver</p>
-                  <div className="flex items-center gap-1 text-xs text-green-400 font-semibold">
-                    <TrendingUp size={13} />
-                    +{SCORE_TREND} pts this week
+              ) : (
+                <div className="flex items-center gap-5">
+                  <div className="relative flex items-center justify-center">
+                    <ScoreArc score={DRIVER_SCORE} />
+                    <span className="absolute text-2xl font-black">{DRIVER_SCORE}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Stay alert and reduce harsh braking to hit 90+
-                  </p>
+                  <div className="flex flex-col gap-1">
+                    <p className="text-sm font-semibold text-foreground">
+                      {DRIVER_SCORE >= 90 ? "Excellent driver" : DRIVER_SCORE >= 75 ? "Good driver" : DRIVER_SCORE >= 60 ? "Fair driver" : "Needs improvement"}
+                    </p>
+                    {SCORE_TREND !== 0 && (
+                      <div className={`flex items-center gap-1 text-xs font-semibold ${SCORE_TREND > 0 ? "text-green-400" : "text-red-400"}`}>
+                        {SCORE_TREND > 0 ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+                        {SCORE_TREND > 0 ? "+" : ""}{SCORE_TREND} pts recent trend
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                      {DRIVER_SCORE >= 90 ? "Keep up the great work!" : "Stay alert and drive safely to improve"}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Stats row */}
@@ -143,39 +205,43 @@ function ProfilePage() {
           {/* ── Right column ── */}
           <div className="flex flex-col gap-4">
 
-            {/* Achievements */}
-            <div className="rounded-2xl bg-card border border-border px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-3">
-                Achievements
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {ACHIEVEMENTS.map(({ icon: Icon, label }) => (
-                  <div key={label} className="flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5">
-                    <Icon size={12} className="text-primary" />
-                    <span className="text-xs font-semibold">{label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Recent drives */}
             <div className="rounded-2xl bg-card border border-border px-5 py-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-3">
                 Recent drives
               </p>
-              <div className="flex flex-col divide-y divide-border">
-                {RECENT_DRIVES.map((d) => (
-                  <div key={d.label} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                    <div>
-                      <p className="text-sm font-semibold">{d.label}</p>
-                      <p className="text-xs text-muted-foreground">{d.time}</p>
-                    </div>
-                    <span className="text-base font-black" style={{ color: d.color }}>
-                      {d.score}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              {loadingStats ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-primary" />
+                </div>
+              ) : !profileStats?.recentDrives.length ? (
+                <div className="py-8 text-center">
+                  <p className="text-sm text-muted-foreground">No drives yet</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">Start recording to see your history</p>
+                </div>
+              ) : (
+                <div className="flex flex-col divide-y divide-border">
+                  {profileStats.recentDrives.map((d) => {
+                    const color = scoreColor(d.score);
+                    return (
+                      <button
+                        key={d.id}
+                        onClick={() => handleDriveClick(d.id)}
+                        disabled={loadingReport}
+                        className="flex items-center justify-between py-3 first:pt-0 last:pb-0 text-left transition hover:bg-secondary/50 disabled:opacity-50 w-full cursor-pointer"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold">{relDate(d.startedAt)}</p>
+                          <p className="text-xs text-muted-foreground">{fmtTime(d.startedAt)} · {fmt(d.duration)}</p>
+                        </div>
+                        <span className="text-base font-black" style={{ color }}>
+                          {d.score}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Theme toggle */}
@@ -225,6 +291,12 @@ function ProfilePage() {
         </p>
 
       </div>
+
+      <DriverFeedback
+        isOpen={showReport}
+        sessionData={sessionData}
+        onClose={() => { setShowReport(false); setSessionData(null); }}
+      />
     </main>
   );
 }
