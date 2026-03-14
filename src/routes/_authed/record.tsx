@@ -1,7 +1,8 @@
+// src/routes/_authed/record.tsx
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { BackCamView } from "#/components/record/BackCamView"
 
-export const Route = createFileRoute("/record")({ component: RecordPage })
+export const Route = createFileRoute("/_authed/record")({ component: RecordPage })
 
 function RecordPage() {
   return (

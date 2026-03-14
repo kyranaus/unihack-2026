@@ -1,4 +1,4 @@
-// src/routes/replay.tsx
+// src/routes/_authed/replay.tsx
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { z } from "zod";
@@ -9,7 +9,7 @@ import { listRecordings, getRecording } from "#/lib/replay-store";
 import type { RecordingMeta } from "#/lib/replay-store";
 import { client } from "#/server/orpc/client";
 
-export const Route = createFileRoute("/replay")({
+export const Route = createFileRoute("/_authed/replay")({
   component: ReplayPage,
   validateSearch: z.object({ t: z.number().optional() }),
 });
@@ -39,10 +39,12 @@ interface DriveEntry {
   meta: RecordingMeta;
   url: string;
   backUrl: string | null;
+  source: "local" | "cloud";
+  videoKey?: string;
 }
 
 function ReplayPage() {
-  const { t: refreshKey } = useSearch({ from: "/replay" });
+  const { t: refreshKey } = useSearch({ from: "/_authed/replay" });
   const [drives, setDrives] = useState<DriveEntry[]>([]);
   const [loadingDrives, setLoadingDrives] = useState(true);
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -61,21 +63,51 @@ function ReplayPage() {
   const loadDrives = useCallback(async () => {
     setLoadingDrives(true);
     try {
-      const metas = await listRecordings();
-      const entries: DriveEntry[] = await Promise.all(
-        metas.map(async (meta) => {
+      const [localMetas, serverResult] = await Promise.all([
+        listRecordings(),
+        client.listDriveSessions({}).catch(() => ({ sessions: [] })),
+      ]);
+
+      const localEntries: DriveEntry[] = await Promise.all(
+        localMetas.map(async (meta) => {
           const rec = await getRecording(meta.id);
           const url = rec ? URL.createObjectURL(rec.videoBlob) : "";
           const backUrl = rec?.backVideoBlob ? URL.createObjectURL(rec.backVideoBlob) : null;
-          return { meta, url, backUrl };
-        })
+          return { meta, url, backUrl, source: "local" as const };
+        }),
       );
+
+      const localSessionIds = new Set(localMetas.map((m) => m.sessionId).filter(Boolean));
+      const cloudEntries: DriveEntry[] = serverResult.sessions
+        .filter((s) => s.videoKey && !localSessionIds.has(s.id))
+        .map((s) => ({
+          meta: {
+            id: s.id,
+            timestamp: new Date(s.startedAt).getTime(),
+            duration: s.endedAt
+              ? Math.round((new Date(s.endedAt).getTime() - new Date(s.startedAt).getTime()) / 1000)
+              : 0,
+            mimeType: "video/webm",
+            score: s.score ?? 0,
+            sessionId: s.id,
+          },
+          url: "",
+          source: "cloud" as const,
+          videoKey: s.videoKey!,
+        }));
+
+      const all = [...localEntries, ...cloudEntries].sort(
+        (a, b) => b.meta.timestamp - a.meta.timestamp,
+      );
+
       setDrives((prev) => {
-        for (const d of prev) {
-          if (d.url) URL.revokeObjectURL(d.url);
-          if (d.backUrl) URL.revokeObjectURL(d.backUrl);
-        }
-        return entries;
+        prev.forEach((d) => {
+          if (d.source === "local") {
+            if (d.url) URL.revokeObjectURL(d.url);
+            if (d.backUrl) URL.revokeObjectURL(d.backUrl);
+          }
+        });
+        return all;
       });
       setSelectedIdx(0);
     } catch (e) {
@@ -100,6 +132,19 @@ function ReplayPage() {
     setDuration(drives[selectedIdx]?.meta.duration ?? 0);
     setActiveCamera(drives[selectedIdx]?.backUrl ? "back" : "front");
   }, [selectedIdx, drives]);
+
+  // Lazily resolve cloud video URL when a cloud drive is selected
+  useEffect(() => {
+    const drive = drives[selectedIdx];
+    if (drive?.source === "cloud" && !drive.url && drive.videoKey) {
+      const key = drive.videoKey;
+      client.getVideoDownloadUrl({ key }).then(({ url }) => {
+        setDrives((prev) =>
+          prev.map((d) => (d.videoKey === key ? { ...d, url } : d)),
+        );
+      }).catch((err) => console.error("Failed to get cloud video URL:", err));
+    }
+  }, [selectedIdx]);
 
   const getPercent = () => (duration > 0 ? (currentTime / duration) * 100 : 0);
 
@@ -336,7 +381,12 @@ function ReplayPage() {
                       style={selectedIdx === i ? { backgroundColor: "rgba(234,179,8,0.06)" } : {}}
                     >
                       <div>
-                        <p className="text-sm font-semibold">{relDate(d.meta.timestamp)}</p>
+                        <p className="text-sm font-semibold">
+                          {relDate(d.meta.timestamp)}
+                          {d.source === "cloud" && (
+                            <span className="ml-1.5 text-[9px] font-semibold uppercase tracking-wide text-primary">Cloud</span>
+                          )}
+                        </p>
                         <p className="text-xs text-muted-foreground">{fmtTime(d.meta.timestamp)} · {fmt(d.meta.duration)}</p>
                       </div>
                       <div className="flex items-center gap-2">

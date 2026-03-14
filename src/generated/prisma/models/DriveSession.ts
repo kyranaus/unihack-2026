@@ -36,29 +36,35 @@ export type DriveSessionSumAggregateOutputType = {
 
 export type DriveSessionMinAggregateOutputType = {
   id: string | null
+  userId: string | null
   startedAt: Date | null
   endedAt: Date | null
   summary: string | null
   score: number | null
+  videoKey: string | null
   createdAt: Date | null
 }
 
 export type DriveSessionMaxAggregateOutputType = {
   id: string | null
+  userId: string | null
   startedAt: Date | null
   endedAt: Date | null
   summary: string | null
   score: number | null
+  videoKey: string | null
   createdAt: Date | null
 }
 
 export type DriveSessionCountAggregateOutputType = {
   id: number
+  userId: number
   startedAt: number
   endedAt: number
   summary: number
   score: number
   cameras: number
+  videoKey: number
   createdAt: number
   _all: number
 }
@@ -74,29 +80,35 @@ export type DriveSessionSumAggregateInputType = {
 
 export type DriveSessionMinAggregateInputType = {
   id?: true
+  userId?: true
   startedAt?: true
   endedAt?: true
   summary?: true
   score?: true
+  videoKey?: true
   createdAt?: true
 }
 
 export type DriveSessionMaxAggregateInputType = {
   id?: true
+  userId?: true
   startedAt?: true
   endedAt?: true
   summary?: true
   score?: true
+  videoKey?: true
   createdAt?: true
 }
 
 export type DriveSessionCountAggregateInputType = {
   id?: true
+  userId?: true
   startedAt?: true
   endedAt?: true
   summary?: true
   score?: true
   cameras?: true
+  videoKey?: true
   createdAt?: true
   _all?: true
 }
@@ -189,11 +201,13 @@ export type DriveSessionGroupByArgs<ExtArgs extends runtime.Types.Extensions.Int
 
 export type DriveSessionGroupByOutputType = {
   id: string
+  userId: string | null
   startedAt: Date
   endedAt: Date | null
   summary: string | null
   score: number | null
   cameras: string[]
+  videoKey: string | null
   createdAt: Date
   _count: DriveSessionCountAggregateOutputType | null
   _avg: DriveSessionAvgAggregateOutputType | null
@@ -222,23 +236,29 @@ export type DriveSessionWhereInput = {
   OR?: Prisma.DriveSessionWhereInput[]
   NOT?: Prisma.DriveSessionWhereInput | Prisma.DriveSessionWhereInput[]
   id?: Prisma.StringFilter<"DriveSession"> | string
+  userId?: Prisma.StringNullableFilter<"DriveSession"> | string | null
   startedAt?: Prisma.DateTimeFilter<"DriveSession"> | Date | string
   endedAt?: Prisma.DateTimeNullableFilter<"DriveSession"> | Date | string | null
   summary?: Prisma.StringNullableFilter<"DriveSession"> | string | null
   score?: Prisma.IntNullableFilter<"DriveSession"> | number | null
   cameras?: Prisma.StringNullableListFilter<"DriveSession">
+  videoKey?: Prisma.StringNullableFilter<"DriveSession"> | string | null
   createdAt?: Prisma.DateTimeFilter<"DriveSession"> | Date | string
+  user?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.userWhereInput> | null
   events?: Prisma.DriveEventListRelationFilter
 }
 
 export type DriveSessionOrderByWithRelationInput = {
   id?: Prisma.SortOrder
+  userId?: Prisma.SortOrderInput | Prisma.SortOrder
   startedAt?: Prisma.SortOrder
   endedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   summary?: Prisma.SortOrderInput | Prisma.SortOrder
   score?: Prisma.SortOrderInput | Prisma.SortOrder
   cameras?: Prisma.SortOrder
+  videoKey?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  user?: Prisma.userOrderByWithRelationInput
   events?: Prisma.DriveEventOrderByRelationAggregateInput
 }
 
@@ -247,22 +267,27 @@ export type DriveSessionWhereUniqueInput = Prisma.AtLeast<{
   AND?: Prisma.DriveSessionWhereInput | Prisma.DriveSessionWhereInput[]
   OR?: Prisma.DriveSessionWhereInput[]
   NOT?: Prisma.DriveSessionWhereInput | Prisma.DriveSessionWhereInput[]
+  userId?: Prisma.StringNullableFilter<"DriveSession"> | string | null
   startedAt?: Prisma.DateTimeFilter<"DriveSession"> | Date | string
   endedAt?: Prisma.DateTimeNullableFilter<"DriveSession"> | Date | string | null
   summary?: Prisma.StringNullableFilter<"DriveSession"> | string | null
   score?: Prisma.IntNullableFilter<"DriveSession"> | number | null
   cameras?: Prisma.StringNullableListFilter<"DriveSession">
+  videoKey?: Prisma.StringNullableFilter<"DriveSession"> | string | null
   createdAt?: Prisma.DateTimeFilter<"DriveSession"> | Date | string
+  user?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.userWhereInput> | null
   events?: Prisma.DriveEventListRelationFilter
 }, "id">
 
 export type DriveSessionOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
+  userId?: Prisma.SortOrderInput | Prisma.SortOrder
   startedAt?: Prisma.SortOrder
   endedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   summary?: Prisma.SortOrderInput | Prisma.SortOrder
   score?: Prisma.SortOrderInput | Prisma.SortOrder
   cameras?: Prisma.SortOrder
+  videoKey?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.DriveSessionCountOrderByAggregateInput
   _avg?: Prisma.DriveSessionAvgOrderByAggregateInput
@@ -276,11 +301,13 @@ export type DriveSessionScalarWhereWithAggregatesInput = {
   OR?: Prisma.DriveSessionScalarWhereWithAggregatesInput[]
   NOT?: Prisma.DriveSessionScalarWhereWithAggregatesInput | Prisma.DriveSessionScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"DriveSession"> | string
+  userId?: Prisma.StringNullableWithAggregatesFilter<"DriveSession"> | string | null
   startedAt?: Prisma.DateTimeWithAggregatesFilter<"DriveSession"> | Date | string
   endedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"DriveSession"> | Date | string | null
   summary?: Prisma.StringNullableWithAggregatesFilter<"DriveSession"> | string | null
   score?: Prisma.IntNullableWithAggregatesFilter<"DriveSession"> | number | null
   cameras?: Prisma.StringNullableListFilter<"DriveSession">
+  videoKey?: Prisma.StringNullableWithAggregatesFilter<"DriveSession"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"DriveSession"> | Date | string
 }
 
@@ -291,17 +318,21 @@ export type DriveSessionCreateInput = {
   summary?: string | null
   score?: number | null
   cameras?: Prisma.DriveSessionCreatecamerasInput | string[]
+  videoKey?: string | null
   createdAt?: Date | string
+  user?: Prisma.userCreateNestedOneWithoutDriveSessionsInput
   events?: Prisma.DriveEventCreateNestedManyWithoutSessionInput
 }
 
 export type DriveSessionUncheckedCreateInput = {
   id?: string
+  userId?: string | null
   startedAt?: Date | string
   endedAt?: Date | string | null
   summary?: string | null
   score?: number | null
   cameras?: Prisma.DriveSessionCreatecamerasInput | string[]
+  videoKey?: string | null
   createdAt?: Date | string
   events?: Prisma.DriveEventUncheckedCreateNestedManyWithoutSessionInput
 }
@@ -313,28 +344,34 @@ export type DriveSessionUpdateInput = {
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   score?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   cameras?: Prisma.DriveSessionUpdatecamerasInput | string[]
+  videoKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.userUpdateOneWithoutDriveSessionsNestedInput
   events?: Prisma.DriveEventUpdateManyWithoutSessionNestedInput
 }
 
 export type DriveSessionUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   score?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   cameras?: Prisma.DriveSessionUpdatecamerasInput | string[]
+  videoKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   events?: Prisma.DriveEventUncheckedUpdateManyWithoutSessionNestedInput
 }
 
 export type DriveSessionCreateManyInput = {
   id?: string
+  userId?: string | null
   startedAt?: Date | string
   endedAt?: Date | string | null
   summary?: string | null
   score?: number | null
   cameras?: Prisma.DriveSessionCreatecamerasInput | string[]
+  videoKey?: string | null
   createdAt?: Date | string
 }
 
@@ -345,17 +382,30 @@ export type DriveSessionUpdateManyMutationInput = {
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   score?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   cameras?: Prisma.DriveSessionUpdatecamerasInput | string[]
+  videoKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type DriveSessionUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   score?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   cameras?: Prisma.DriveSessionUpdatecamerasInput | string[]
+  videoKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type DriveSessionListRelationFilter = {
+  every?: Prisma.DriveSessionWhereInput
+  some?: Prisma.DriveSessionWhereInput
+  none?: Prisma.DriveSessionWhereInput
+}
+
+export type DriveSessionOrderByRelationAggregateInput = {
+  _count?: Prisma.SortOrder
 }
 
 export type StringNullableListFilter<$PrismaModel = never> = {
@@ -368,11 +418,13 @@ export type StringNullableListFilter<$PrismaModel = never> = {
 
 export type DriveSessionCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
   startedAt?: Prisma.SortOrder
   endedAt?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   score?: Prisma.SortOrder
   cameras?: Prisma.SortOrder
+  videoKey?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -382,19 +434,23 @@ export type DriveSessionAvgOrderByAggregateInput = {
 
 export type DriveSessionMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
   startedAt?: Prisma.SortOrder
   endedAt?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   score?: Prisma.SortOrder
+  videoKey?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
 export type DriveSessionMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  userId?: Prisma.SortOrder
   startedAt?: Prisma.SortOrder
   endedAt?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   score?: Prisma.SortOrder
+  videoKey?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -405,6 +461,48 @@ export type DriveSessionSumOrderByAggregateInput = {
 export type DriveSessionScalarRelationFilter = {
   is?: Prisma.DriveSessionWhereInput
   isNot?: Prisma.DriveSessionWhereInput
+}
+
+export type DriveSessionCreateNestedManyWithoutUserInput = {
+  create?: Prisma.XOR<Prisma.DriveSessionCreateWithoutUserInput, Prisma.DriveSessionUncheckedCreateWithoutUserInput> | Prisma.DriveSessionCreateWithoutUserInput[] | Prisma.DriveSessionUncheckedCreateWithoutUserInput[]
+  connectOrCreate?: Prisma.DriveSessionCreateOrConnectWithoutUserInput | Prisma.DriveSessionCreateOrConnectWithoutUserInput[]
+  createMany?: Prisma.DriveSessionCreateManyUserInputEnvelope
+  connect?: Prisma.DriveSessionWhereUniqueInput | Prisma.DriveSessionWhereUniqueInput[]
+}
+
+export type DriveSessionUncheckedCreateNestedManyWithoutUserInput = {
+  create?: Prisma.XOR<Prisma.DriveSessionCreateWithoutUserInput, Prisma.DriveSessionUncheckedCreateWithoutUserInput> | Prisma.DriveSessionCreateWithoutUserInput[] | Prisma.DriveSessionUncheckedCreateWithoutUserInput[]
+  connectOrCreate?: Prisma.DriveSessionCreateOrConnectWithoutUserInput | Prisma.DriveSessionCreateOrConnectWithoutUserInput[]
+  createMany?: Prisma.DriveSessionCreateManyUserInputEnvelope
+  connect?: Prisma.DriveSessionWhereUniqueInput | Prisma.DriveSessionWhereUniqueInput[]
+}
+
+export type DriveSessionUpdateManyWithoutUserNestedInput = {
+  create?: Prisma.XOR<Prisma.DriveSessionCreateWithoutUserInput, Prisma.DriveSessionUncheckedCreateWithoutUserInput> | Prisma.DriveSessionCreateWithoutUserInput[] | Prisma.DriveSessionUncheckedCreateWithoutUserInput[]
+  connectOrCreate?: Prisma.DriveSessionCreateOrConnectWithoutUserInput | Prisma.DriveSessionCreateOrConnectWithoutUserInput[]
+  upsert?: Prisma.DriveSessionUpsertWithWhereUniqueWithoutUserInput | Prisma.DriveSessionUpsertWithWhereUniqueWithoutUserInput[]
+  createMany?: Prisma.DriveSessionCreateManyUserInputEnvelope
+  set?: Prisma.DriveSessionWhereUniqueInput | Prisma.DriveSessionWhereUniqueInput[]
+  disconnect?: Prisma.DriveSessionWhereUniqueInput | Prisma.DriveSessionWhereUniqueInput[]
+  delete?: Prisma.DriveSessionWhereUniqueInput | Prisma.DriveSessionWhereUniqueInput[]
+  connect?: Prisma.DriveSessionWhereUniqueInput | Prisma.DriveSessionWhereUniqueInput[]
+  update?: Prisma.DriveSessionUpdateWithWhereUniqueWithoutUserInput | Prisma.DriveSessionUpdateWithWhereUniqueWithoutUserInput[]
+  updateMany?: Prisma.DriveSessionUpdateManyWithWhereWithoutUserInput | Prisma.DriveSessionUpdateManyWithWhereWithoutUserInput[]
+  deleteMany?: Prisma.DriveSessionScalarWhereInput | Prisma.DriveSessionScalarWhereInput[]
+}
+
+export type DriveSessionUncheckedUpdateManyWithoutUserNestedInput = {
+  create?: Prisma.XOR<Prisma.DriveSessionCreateWithoutUserInput, Prisma.DriveSessionUncheckedCreateWithoutUserInput> | Prisma.DriveSessionCreateWithoutUserInput[] | Prisma.DriveSessionUncheckedCreateWithoutUserInput[]
+  connectOrCreate?: Prisma.DriveSessionCreateOrConnectWithoutUserInput | Prisma.DriveSessionCreateOrConnectWithoutUserInput[]
+  upsert?: Prisma.DriveSessionUpsertWithWhereUniqueWithoutUserInput | Prisma.DriveSessionUpsertWithWhereUniqueWithoutUserInput[]
+  createMany?: Prisma.DriveSessionCreateManyUserInputEnvelope
+  set?: Prisma.DriveSessionWhereUniqueInput | Prisma.DriveSessionWhereUniqueInput[]
+  disconnect?: Prisma.DriveSessionWhereUniqueInput | Prisma.DriveSessionWhereUniqueInput[]
+  delete?: Prisma.DriveSessionWhereUniqueInput | Prisma.DriveSessionWhereUniqueInput[]
+  connect?: Prisma.DriveSessionWhereUniqueInput | Prisma.DriveSessionWhereUniqueInput[]
+  update?: Prisma.DriveSessionUpdateWithWhereUniqueWithoutUserInput | Prisma.DriveSessionUpdateWithWhereUniqueWithoutUserInput[]
+  updateMany?: Prisma.DriveSessionUpdateManyWithWhereWithoutUserInput | Prisma.DriveSessionUpdateManyWithWhereWithoutUserInput[]
+  deleteMany?: Prisma.DriveSessionScalarWhereInput | Prisma.DriveSessionScalarWhereInput[]
 }
 
 export type DriveSessionCreatecamerasInput = {
@@ -438,6 +536,71 @@ export type DriveSessionUpdateOneRequiredWithoutEventsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.DriveSessionUpdateToOneWithWhereWithoutEventsInput, Prisma.DriveSessionUpdateWithoutEventsInput>, Prisma.DriveSessionUncheckedUpdateWithoutEventsInput>
 }
 
+export type DriveSessionCreateWithoutUserInput = {
+  id?: string
+  startedAt?: Date | string
+  endedAt?: Date | string | null
+  summary?: string | null
+  score?: number | null
+  cameras?: Prisma.DriveSessionCreatecamerasInput | string[]
+  videoKey?: string | null
+  createdAt?: Date | string
+  events?: Prisma.DriveEventCreateNestedManyWithoutSessionInput
+}
+
+export type DriveSessionUncheckedCreateWithoutUserInput = {
+  id?: string
+  startedAt?: Date | string
+  endedAt?: Date | string | null
+  summary?: string | null
+  score?: number | null
+  cameras?: Prisma.DriveSessionCreatecamerasInput | string[]
+  videoKey?: string | null
+  createdAt?: Date | string
+  events?: Prisma.DriveEventUncheckedCreateNestedManyWithoutSessionInput
+}
+
+export type DriveSessionCreateOrConnectWithoutUserInput = {
+  where: Prisma.DriveSessionWhereUniqueInput
+  create: Prisma.XOR<Prisma.DriveSessionCreateWithoutUserInput, Prisma.DriveSessionUncheckedCreateWithoutUserInput>
+}
+
+export type DriveSessionCreateManyUserInputEnvelope = {
+  data: Prisma.DriveSessionCreateManyUserInput | Prisma.DriveSessionCreateManyUserInput[]
+  skipDuplicates?: boolean
+}
+
+export type DriveSessionUpsertWithWhereUniqueWithoutUserInput = {
+  where: Prisma.DriveSessionWhereUniqueInput
+  update: Prisma.XOR<Prisma.DriveSessionUpdateWithoutUserInput, Prisma.DriveSessionUncheckedUpdateWithoutUserInput>
+  create: Prisma.XOR<Prisma.DriveSessionCreateWithoutUserInput, Prisma.DriveSessionUncheckedCreateWithoutUserInput>
+}
+
+export type DriveSessionUpdateWithWhereUniqueWithoutUserInput = {
+  where: Prisma.DriveSessionWhereUniqueInput
+  data: Prisma.XOR<Prisma.DriveSessionUpdateWithoutUserInput, Prisma.DriveSessionUncheckedUpdateWithoutUserInput>
+}
+
+export type DriveSessionUpdateManyWithWhereWithoutUserInput = {
+  where: Prisma.DriveSessionScalarWhereInput
+  data: Prisma.XOR<Prisma.DriveSessionUpdateManyMutationInput, Prisma.DriveSessionUncheckedUpdateManyWithoutUserInput>
+}
+
+export type DriveSessionScalarWhereInput = {
+  AND?: Prisma.DriveSessionScalarWhereInput | Prisma.DriveSessionScalarWhereInput[]
+  OR?: Prisma.DriveSessionScalarWhereInput[]
+  NOT?: Prisma.DriveSessionScalarWhereInput | Prisma.DriveSessionScalarWhereInput[]
+  id?: Prisma.StringFilter<"DriveSession"> | string
+  userId?: Prisma.StringNullableFilter<"DriveSession"> | string | null
+  startedAt?: Prisma.DateTimeFilter<"DriveSession"> | Date | string
+  endedAt?: Prisma.DateTimeNullableFilter<"DriveSession"> | Date | string | null
+  summary?: Prisma.StringNullableFilter<"DriveSession"> | string | null
+  score?: Prisma.IntNullableFilter<"DriveSession"> | number | null
+  cameras?: Prisma.StringNullableListFilter<"DriveSession">
+  videoKey?: Prisma.StringNullableFilter<"DriveSession"> | string | null
+  createdAt?: Prisma.DateTimeFilter<"DriveSession"> | Date | string
+}
+
 export type DriveSessionCreateWithoutEventsInput = {
   id?: string
   startedAt?: Date | string
@@ -445,16 +608,20 @@ export type DriveSessionCreateWithoutEventsInput = {
   summary?: string | null
   score?: number | null
   cameras?: Prisma.DriveSessionCreatecamerasInput | string[]
+  videoKey?: string | null
   createdAt?: Date | string
+  user?: Prisma.userCreateNestedOneWithoutDriveSessionsInput
 }
 
 export type DriveSessionUncheckedCreateWithoutEventsInput = {
   id?: string
+  userId?: string | null
   startedAt?: Date | string
   endedAt?: Date | string | null
   summary?: string | null
   score?: number | null
   cameras?: Prisma.DriveSessionCreatecamerasInput | string[]
+  videoKey?: string | null
   createdAt?: Date | string
 }
 
@@ -481,16 +648,66 @@ export type DriveSessionUpdateWithoutEventsInput = {
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   score?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   cameras?: Prisma.DriveSessionUpdatecamerasInput | string[]
+  videoKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.userUpdateOneWithoutDriveSessionsNestedInput
 }
 
 export type DriveSessionUncheckedUpdateWithoutEventsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  userId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  endedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  score?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cameras?: Prisma.DriveSessionUpdatecamerasInput | string[]
+  videoKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type DriveSessionCreateManyUserInput = {
+  id?: string
+  startedAt?: Date | string
+  endedAt?: Date | string | null
+  summary?: string | null
+  score?: number | null
+  cameras?: Prisma.DriveSessionCreatecamerasInput | string[]
+  videoKey?: string | null
+  createdAt?: Date | string
+}
+
+export type DriveSessionUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   endedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   score?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   cameras?: Prisma.DriveSessionUpdatecamerasInput | string[]
+  videoKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  events?: Prisma.DriveEventUpdateManyWithoutSessionNestedInput
+}
+
+export type DriveSessionUncheckedUpdateWithoutUserInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  endedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  score?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cameras?: Prisma.DriveSessionUpdatecamerasInput | string[]
+  videoKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  events?: Prisma.DriveEventUncheckedUpdateManyWithoutSessionNestedInput
+}
+
+export type DriveSessionUncheckedUpdateManyWithoutUserInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  startedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  endedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  score?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  cameras?: Prisma.DriveSessionUpdatecamerasInput | string[]
+  videoKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -527,66 +744,85 @@ export type DriveSessionCountOutputTypeCountEventsArgs<ExtArgs extends runtime.T
 
 export type DriveSessionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  userId?: boolean
   startedAt?: boolean
   endedAt?: boolean
   summary?: boolean
   score?: boolean
   cameras?: boolean
+  videoKey?: boolean
   createdAt?: boolean
+  user?: boolean | Prisma.DriveSession$userArgs<ExtArgs>
   events?: boolean | Prisma.DriveSession$eventsArgs<ExtArgs>
   _count?: boolean | Prisma.DriveSessionCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["driveSession"]>
 
 export type DriveSessionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  userId?: boolean
   startedAt?: boolean
   endedAt?: boolean
   summary?: boolean
   score?: boolean
   cameras?: boolean
+  videoKey?: boolean
   createdAt?: boolean
+  user?: boolean | Prisma.DriveSession$userArgs<ExtArgs>
 }, ExtArgs["result"]["driveSession"]>
 
 export type DriveSessionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  userId?: boolean
   startedAt?: boolean
   endedAt?: boolean
   summary?: boolean
   score?: boolean
   cameras?: boolean
+  videoKey?: boolean
   createdAt?: boolean
+  user?: boolean | Prisma.DriveSession$userArgs<ExtArgs>
 }, ExtArgs["result"]["driveSession"]>
 
 export type DriveSessionSelectScalar = {
   id?: boolean
+  userId?: boolean
   startedAt?: boolean
   endedAt?: boolean
   summary?: boolean
   score?: boolean
   cameras?: boolean
+  videoKey?: boolean
   createdAt?: boolean
 }
 
-export type DriveSessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "startedAt" | "endedAt" | "summary" | "score" | "cameras" | "createdAt", ExtArgs["result"]["driveSession"]>
+export type DriveSessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "startedAt" | "endedAt" | "summary" | "score" | "cameras" | "videoKey" | "createdAt", ExtArgs["result"]["driveSession"]>
 export type DriveSessionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  user?: boolean | Prisma.DriveSession$userArgs<ExtArgs>
   events?: boolean | Prisma.DriveSession$eventsArgs<ExtArgs>
   _count?: boolean | Prisma.DriveSessionCountOutputTypeDefaultArgs<ExtArgs>
 }
-export type DriveSessionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
-export type DriveSessionIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
+export type DriveSessionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  user?: boolean | Prisma.DriveSession$userArgs<ExtArgs>
+}
+export type DriveSessionIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  user?: boolean | Prisma.DriveSession$userArgs<ExtArgs>
+}
 
 export type $DriveSessionPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "DriveSession"
   objects: {
+    user: Prisma.$userPayload<ExtArgs> | null
     events: Prisma.$DriveEventPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
+    userId: string | null
     startedAt: Date
     endedAt: Date | null
     summary: string | null
     score: number | null
     cameras: string[]
+    videoKey: string | null
     createdAt: Date
   }, ExtArgs["result"]["driveSession"]>
   composites: {}
@@ -982,6 +1218,7 @@ readonly fields: DriveSessionFieldRefs;
  */
 export interface Prisma__DriveSessionClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  user<T extends Prisma.DriveSession$userArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DriveSession$userArgs<ExtArgs>>): Prisma.Prisma__userClient<runtime.Types.Result.GetResult<Prisma.$userPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   events<T extends Prisma.DriveSession$eventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DriveSession$eventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DriveEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -1013,11 +1250,13 @@ export interface Prisma__DriveSessionClient<T, Null = never, ExtArgs extends run
  */
 export interface DriveSessionFieldRefs {
   readonly id: Prisma.FieldRef<"DriveSession", 'String'>
+  readonly userId: Prisma.FieldRef<"DriveSession", 'String'>
   readonly startedAt: Prisma.FieldRef<"DriveSession", 'DateTime'>
   readonly endedAt: Prisma.FieldRef<"DriveSession", 'DateTime'>
   readonly summary: Prisma.FieldRef<"DriveSession", 'String'>
   readonly score: Prisma.FieldRef<"DriveSession", 'Int'>
   readonly cameras: Prisma.FieldRef<"DriveSession", 'String[]'>
+  readonly videoKey: Prisma.FieldRef<"DriveSession", 'String'>
   readonly createdAt: Prisma.FieldRef<"DriveSession", 'DateTime'>
 }
     
@@ -1273,6 +1512,10 @@ export type DriveSessionCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Ex
    */
   data: Prisma.DriveSessionCreateManyInput | Prisma.DriveSessionCreateManyInput[]
   skipDuplicates?: boolean
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.DriveSessionIncludeCreateManyAndReturn<ExtArgs> | null
 }
 
 /**
@@ -1343,6 +1586,10 @@ export type DriveSessionUpdateManyAndReturnArgs<ExtArgs extends runtime.Types.Ex
    * Limit how many DriveSessions to update.
    */
   limit?: number
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.DriveSessionIncludeUpdateManyAndReturn<ExtArgs> | null
 }
 
 /**
@@ -1409,6 +1656,25 @@ export type DriveSessionDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.
    * Limit how many DriveSessions to delete.
    */
   limit?: number
+}
+
+/**
+ * DriveSession.user
+ */
+export type DriveSession$userArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the user
+   */
+  select?: Prisma.userSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the user
+   */
+  omit?: Prisma.userOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.userInclude<ExtArgs> | null
+  where?: Prisma.userWhereInput
 }
 
 /**

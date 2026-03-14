@@ -6,6 +6,13 @@ import {
   endSession,
   getSession,
   getProfileStats,
+  getVideoUploadUrl,
+  getVideoDownloadUrl,
+  listDriveSessions,
+  initVideoUpload,
+  getPartUrl,
+  completeVideoUpload,
+  abortVideoUpload,
 } from './drives'
 
 export default {
@@ -17,4 +24,12 @@ export default {
   endSession,
   getSession,
   getProfileStats,
+  getProfileStats,
+  getVideoUploadUrl,
+  getVideoDownloadUrl,
+  listDriveSessions,
+  initVideoUpload,
+  getPartUrl,
+  completeVideoUpload,
+  abortVideoUpload,
 }
