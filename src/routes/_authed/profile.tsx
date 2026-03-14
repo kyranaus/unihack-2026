@@ -74,14 +74,7 @@ function ProfilePage() {
     }
   }, [light]);
 
-  if (isPending) return null;
-
-  if (!session?.user) {
-    navigate({ to: "/login" });
-    return null;
-  }
-
-  const USERNAME = session.user.name || "Driver";
+  const USERNAME = user.name || "Driver";
   const DRIVER_SCORE = profileStats?.avgScore ?? 0;
   const SCORE_TREND = profileStats?.scoreTrend ?? 0;
   

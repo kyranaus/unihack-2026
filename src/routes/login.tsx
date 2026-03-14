@@ -1,5 +1,5 @@
 // src/routes/login.tsx
-import { createFileRoute, redirect } from "@tanstack/react-router"
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { motion } from "framer-motion"
 import { BrandLogo } from "#/components/home/BrandLogo"
 import { authClient } from "#/lib/auth-client"
@@ -17,11 +17,20 @@ export const Route = createFileRoute("/login")({
 })
 
 function LoginPage() {
+  const navigate = useNavigate()
+
   const handleGoogleSignIn = () => {
     authClient.signIn.social({
       provider: "google",
       callbackURL: "/onboarding",
     })
+  }
+
+  const handleAnonymousSignIn = async () => {
+    const { error } = await authClient.signIn.anonymous()
+    if (!error) {
+      navigate({ to: "/" })
+    }
   }
 
   return (
@@ -41,6 +50,13 @@ function LoginPage() {
           >
             <GoogleIcon />
             Continue with Google
+          </button>
+
+          <button
+            onClick={handleAnonymousSignIn}
+            className="flex w-full items-center justify-center gap-3 rounded-full bg-primary px-6 py-3.5 font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 active:scale-[0.98]"
+          >
+            Continue without account
           </button>
 
           <p className="text-center text-[10px] text-muted-foreground">
