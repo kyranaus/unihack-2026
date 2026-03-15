@@ -171,11 +171,11 @@ function App() {
           className="absolute pointer-events-none"
           style={{ top: beeTop || "60%" }}
           initial={{ x: "-160px" }}
-          animate={{ x: "calc(40vw)" }}
-          transition={{ duration: 4, ease: "easeOut" }}
+          animate={{ x: "calc(35vw)" }}
+          transition={{ duration: 3, ease: "easeOut" }}
         >
           <motion.div
-            animate={{ y: [0, -5, 0, 5, 0] }}
+            animate={{ y: [0, -20, 0, 20, 0] }}
             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           >
             <DotLottieReact src="/flyingBee.lottie" autoplay loop style={{ width: 90, height: 90 }} />
@@ -195,7 +195,7 @@ function App() {
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 2.0, duration: 0.6, ease: "easeOut" }}
+              transition={{ delay: 1.3, duration: 1, ease: "easeOut" }}
               className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
             >
               Welcome back
@@ -212,7 +212,7 @@ function App() {
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 3.6, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ delay:2.0, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
           className="absolute bottom-32 left-0 right-0 flex justify-center px-4"
         >
           <button
