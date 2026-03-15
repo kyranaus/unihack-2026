@@ -135,14 +135,16 @@ export default function RecordView() {
 	// Recording — in single mode only one recorder is active at a time
 	const frontRecorder = useMediaRecorder(frontStream);
 	const backRecorder = useMediaRecorder(backCamera.stream, {
-		onChunk: streamUpload.pushChunk,
+		onChunk: (chunk) => {
+			console.log(`[BackRec] chunk ${(chunk.size / 1024).toFixed(1)}KB`);
+			streamUpload.pushChunk(chunk);
+		},
 	});
 	const isRecording = frontRecorder.isRecording || backRecorder.isRecording;
 	const wantRecordingRef = useRef(false);
 
 	// Composite canvas recording refs
 	const compositeRecorderRef = useRef<MediaRecorder | null>(null);
-	const compositeChunksRef = useRef<Blob[]>([]);
 	const drawLoopActiveRef = useRef(false);
 	const compositeMainCamRef = useRef<"front" | "back">("back");
 
@@ -167,7 +169,10 @@ export default function RecordView() {
 	const [ending, setEnding] = useState(false);
 	const [sessionScore, setSessionScore] = useState<number | null>(null);
 	const [liveLog, setLiveLog] = useState<string[]>([]);
-	const [showTraffic, setShowTraffic] = useState(true);
+	const [showTraffic, setShowTraffic] = useState(false);
+	const [showTrafficWarning, setShowTrafficWarning] = useState(false);
+	const [controlsVisible, setControlsVisible] = useState(true);
+	const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	// Emergency overlay
 	const [emergencyTriggered, setEmergencyTriggered] = useState(false);
@@ -230,6 +235,22 @@ export default function RecordView() {
 		} catch {
 			setDebugAccel(false);
 		}
+	}, []);
+
+	// Global error/crash logging — helps diagnose what triggers the page crash
+	useEffect(() => {
+		const onError = (e: ErrorEvent) => {
+			console.error(`[CRASH] Uncaught error at ${e.filename}:${e.lineno} — ${e.message}`);
+		};
+		const onUnhandled = (e: PromiseRejectionEvent) => {
+			console.error("[CRASH] Unhandled promise rejection:", e.reason);
+		};
+		window.addEventListener("error", onError);
+		window.addEventListener("unhandledrejection", onUnhandled);
+		return () => {
+			window.removeEventListener("error", onError);
+			window.removeEventListener("unhandledrejection", onUnhandled);
+		};
 	}, []);
 
 	const { speak } = usePollyTTS();
@@ -366,6 +387,18 @@ export default function RecordView() {
 				const spd = speedKmhRef.current;
 				if (spd != null)
 					speedTrackRef.current.push({ elapsedSec: next, speedKmh: spd });
+				// Log memory every 5s to help diagnose crashes
+				if (next % 5 === 0) {
+					const mem = (performance as any).memory;
+					if (mem) {
+						const used = (mem.usedJSHeapSize / 1048576).toFixed(1);
+						const total = (mem.totalJSHeapSize / 1048576).toFixed(1);
+						const limit = (mem.jsHeapSizeLimit / 1048576).toFixed(1);
+						console.log(`[Memory] ${next}s — used=${used}MB total=${total}MB limit=${limit}MB`);
+					} else {
+						console.log(`[Memory] ${next}s — performance.memory not available`);
+					}
+				}
 				if (next >= MAX_RECORD_SECS) {
 					handleStopRecordingRef.current();
 					return 0;
@@ -378,6 +411,7 @@ export default function RecordView() {
 
 	// Recording handlers
 	const handleStartRecording = useCallback(async () => {
+		console.log(`[REC] handleStartRecording — mode=${isSingleCam ? "single" : "dual"} cam=${activeCamera}`);
 		if (isIOS) {
 			await requestMotionPermission().catch(() => {});
 		}
@@ -387,86 +421,94 @@ export default function RecordView() {
 			if (activeCamera === "front") frontRecorder.startRecording();
 			else backRecorder.startRecording();
 		} else {
-			// Dual-cam (Android): both recorders + composite canvas
-			frontRecorder.startRecording();
+			// Dual-cam (Android): back recorder streams to S3, composite canvas captures both cameras
+			// frontRecorder is NOT started — it would accumulate all chunks in memory with no benefit
+			// since the composite already captures the front camera.
 			backRecorder.startRecording();
 
+			// 640x360 composite (was 1280x720) — 4x less canvas memory/GPU load on mobile
+			const COMP_W = 640, COMP_H = 360;
 			const canvas = document.createElement("canvas");
-			canvas.width = 1280;
-			canvas.height = 720;
+			canvas.width = COMP_W;
+			canvas.height = COMP_H;
 			const ctx = canvas.getContext("2d");
-			compositeChunksRef.current = [];
 			drawLoopActiveRef.current = true;
 
-			const PIP_W = 320,
-				PIP_H = 180,
-				PIP_M = 16;
+			const PIP_W = 160,
+				PIP_H = 90,
+				PIP_M = 8;
 
-			const drawComposite = () => {
+			// Throttle composite draw to 15fps — no need to burn GPU at 60fps for a recording
+			let lastDrawTime = 0;
+			const DRAW_INTERVAL = 1000 / 15;
+			const drawComposite = (now: number) => {
 				if (!drawLoopActiveRef.current || !ctx) return;
-				const isBackMain = compositeMainCamRef.current === "back";
-				const mainVid = isBackMain
-					? backCamera.videoRef.current
-					: videoRef.current;
-				const pipVid = isBackMain
-					? videoRef.current
-					: backCamera.videoRef.current;
+				if (now - lastDrawTime >= DRAW_INTERVAL) {
+					lastDrawTime = now;
+					const isBackMain = compositeMainCamRef.current === "back";
+					const mainVid = isBackMain
+						? backCamera.videoRef.current
+						: videoRef.current;
+					const pipVid = isBackMain
+						? videoRef.current
+						: backCamera.videoRef.current;
 
-				ctx.fillStyle = "#000";
-				ctx.fillRect(0, 0, 1280, 720);
+					ctx.fillStyle = "#000";
+					ctx.fillRect(0, 0, COMP_W, COMP_H);
 
-				if (mainVid && mainVid.readyState >= 2) {
-					if (!isBackMain) {
+					if (mainVid && mainVid.readyState >= 2) {
+						if (!isBackMain) {
+							ctx.save();
+							ctx.translate(COMP_W, 0);
+							ctx.scale(-1, 1);
+							ctx.drawImage(mainVid, 0, 0, COMP_W, COMP_H);
+							ctx.restore();
+						} else {
+							ctx.drawImage(mainVid, 0, 0, COMP_W, COMP_H);
+						}
+					}
+
+					const px = PIP_M;
+					const py = PIP_M;
+					if (pipVid && pipVid.readyState >= 2) {
 						ctx.save();
-						ctx.translate(1280, 0);
-						ctx.scale(-1, 1);
-						ctx.drawImage(mainVid, 0, 0, 1280, 720);
+						ctx.beginPath();
+						ctx.roundRect(px, py, PIP_W, PIP_H, 8);
+						ctx.clip();
+						if (isBackMain) {
+							ctx.translate(px + PIP_W, py);
+							ctx.scale(-1, 1);
+							ctx.drawImage(pipVid, 0, 0, PIP_W, PIP_H);
+						} else {
+							ctx.drawImage(pipVid, px, py, PIP_W, PIP_H);
+						}
 						ctx.restore();
-					} else {
-						ctx.drawImage(mainVid, 0, 0, 1280, 720);
+						ctx.strokeStyle = "rgba(255,255,255,0.6)";
+						ctx.lineWidth = 2;
+						ctx.beginPath();
+						ctx.roundRect(px, py, PIP_W, PIP_H, 8);
+						ctx.stroke();
 					}
 				}
-
-				const px = PIP_M;
-				const py = PIP_M;
-				if (pipVid && pipVid.readyState >= 2) {
-					ctx.save();
-					ctx.beginPath();
-					ctx.roundRect(px, py, PIP_W, PIP_H, 8);
-					ctx.clip();
-					if (isBackMain) {
-						ctx.translate(px + PIP_W, py);
-						ctx.scale(-1, 1);
-						ctx.drawImage(pipVid, 0, 0, PIP_W, PIP_H);
-					} else {
-						ctx.drawImage(pipVid, px, py, PIP_W, PIP_H);
-					}
-					ctx.restore();
-					ctx.strokeStyle = "rgba(255,255,255,0.6)";
-					ctx.lineWidth = 2;
-					ctx.beginPath();
-					ctx.roundRect(px, py, PIP_W, PIP_H, 8);
-					ctx.stroke();
-				}
-
 				requestAnimationFrame(drawComposite);
 			};
-			drawComposite();
+			requestAnimationFrame(drawComposite);
 
 			const mimeType = getSupportedMimeType();
-			const compositeStream = canvas.captureStream(30);
+			const compositeStream = canvas.captureStream(15);
 			const compositeRecorder = new MediaRecorder(
 				compositeStream,
 				mimeType ? { mimeType } : undefined,
 			);
 			compositeRecorder.ondataavailable = (e) => {
 				if (e.data.size > 0) {
-					compositeChunksRef.current.push(e.data);
+					console.log(`[Composite] chunk ${(e.data.size/1024).toFixed(1)}KB`);
 					streamUpload.pushChunk(e.data);
 				}
 			};
 			compositeRecorder.start(1000);
 			compositeRecorderRef.current = compositeRecorder;
+			console.log("[Composite] recorder started 640x360@15fps");
 		}
 		addLog("Starting session...");
 		client
@@ -494,6 +536,7 @@ export default function RecordView() {
 	]);
 
 	const handleStopRecording = useCallback(async () => {
+		console.log(`[REC] handleStopRecording — elapsed=${recSecondsRef.current}s`);
 		wantRecordingRef.current = false;
 		const duration = frontRecorder.duration || backRecorder.duration || 0;
 
@@ -506,12 +549,9 @@ export default function RecordView() {
 				return;
 			}
 			recorder.onstop = () => {
-				resolve(
-					new Blob(compositeChunksRef.current, {
-						type: recorder.mimeType || "video/webm",
-					}),
-				);
+				// composite was streamed to S3, no local blob needed
 				compositeRecorderRef.current = null;
+				resolve(null);
 			};
 			recorder.stop();
 		});
@@ -1014,7 +1054,6 @@ export default function RecordView() {
 					ref={backCamera.videoRef}
 					onClick={() => {
 						if (!isSingleCam && activeCamera === "front") handleFlipCamera();
-						else if (activeCamera === "back") setShowTraffic((v) => !v);
 					}}
 					className={
 						activeCamera === "back"
@@ -1310,6 +1349,25 @@ export default function RecordView() {
 					/>
 				</button>
 
+				{/* Object detection toggle */}
+				<div className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
+					<div>
+						<p className="text-sm font-medium text-foreground">Object Detection</p>
+						<p className="text-xs text-muted-foreground">Detects vehicles, pedestrians &amp; signs</p>
+					</div>
+					<button
+						type="button"
+						onClick={() => {
+							if (!showTraffic) setShowTrafficWarning(true);
+							else setShowTraffic(false);
+						}}
+						className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${showTraffic ? "bg-primary" : "bg-muted"}`}
+						aria-label="Toggle object detection"
+					>
+						<span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${showTraffic ? "translate-x-6" : "translate-x-1"}`} />
+					</button>
+				</div>
+
 				{/* Live log */}
 				<div
 					ref={liveLogRef}
@@ -1346,6 +1404,43 @@ export default function RecordView() {
 						<p className="text-sm text-muted-foreground">
 							Generating drive summary...
 						</p>
+					</div>
+				</div>
+			)}
+
+			{/* Object detection hardware warning */}
+			{showTrafficWarning && (
+				<div className="fixed inset-0 z-[90] flex items-end justify-center p-4 bg-black/60 backdrop-blur-sm">
+					<div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl">
+						<div className="mb-4 flex items-start gap-3">
+							<div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-500/15">
+								<svg className="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+									<path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+								</svg>
+							</div>
+							<div>
+								<h3 className="text-sm font-semibold text-foreground">Hardware Requirement</h3>
+								<p className="mt-1 text-sm text-muted-foreground leading-relaxed">
+									Object detection runs a real-time neural network on your device. On devices without dedicated AI or GPU hardware, this may significantly reduce performance during recording.
+								</p>
+							</div>
+						</div>
+						<div className="flex gap-3">
+							<button
+								type="button"
+								onClick={() => setShowTrafficWarning(false)}
+								className="flex-1 rounded-xl border border-border bg-muted px-4 py-2.5 text-sm font-medium text-foreground transition-colors active:opacity-70"
+							>
+								Cancel
+							</button>
+							<button
+								type="button"
+								onClick={() => { setShowTraffic(true); setShowTrafficWarning(false); }}
+								className="flex-1 rounded-xl bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-colors active:opacity-70"
+							>
+								Enable Anyway
+							</button>
+						</div>
 					</div>
 				</div>
 			)}
