@@ -1,6 +1,6 @@
 // src/components/RecordView.tsx
 import { useEffect, useRef, useState, useCallback } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ScanSearch } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type {
 	DriverState,
@@ -1340,36 +1340,42 @@ export default function RecordView() {
 
 			{/* Controls */}
 			<div className="flex flex-none flex-col items-center gap-3 pb-4 pt-2">
-				<button
-					type="button"
-					onClick={() =>
-						isRecording ? handleStopRecording() : handleStartRecording()
-					}
-					disabled={loading}
-					className={`flex h-20 w-20 items-center justify-center rounded-full border-4 border-foreground transition-transform active:scale-95 disabled:opacity-30 ${isRecording ? "animate-pulse" : ""}`}
-					aria-label={isRecording ? "Stop recording" : "Start recording"}
-				>
-					<span
-						className={`bg-red-500 transition-all duration-200 ${isRecording ? "h-8 w-8 rounded-lg" : "h-14 w-14 rounded-full"}`}
-					/>
-				</button>
+				<div className="flex items-center justify-center gap-6">
+					{/* Spacer to balance the layout */}
+					<div className="h-12 w-12" />
 
-				{/* Object detection toggle */}
-				<div className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
-					<div>
-						<p className="text-sm font-medium text-foreground">Object Detection</p>
-						<p className="text-xs text-muted-foreground">Detects vehicles, pedestrians &amp; signs</p>
-					</div>
+					{/* Record button */}
+					<button
+						type="button"
+						onClick={() =>
+							isRecording ? handleStopRecording() : handleStartRecording()
+						}
+						disabled={loading}
+						className={`flex h-20 w-20 items-center justify-center rounded-full border-4 border-foreground transition-transform active:scale-95 disabled:opacity-30 ${isRecording ? "animate-pulse" : ""}`}
+						aria-label={isRecording ? "Stop recording" : "Start recording"}
+					>
+						<span
+							className={`bg-red-500 transition-all duration-200 ${isRecording ? "h-8 w-8 rounded-lg" : "h-14 w-14 rounded-full"}`}
+						/>
+					</button>
+
+					{/* Object detection toggle */}
 					<button
 						type="button"
 						onClick={() => {
 							if (!showTraffic) setShowTrafficWarning(true);
 							else setShowTraffic(false);
 						}}
-						className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${showTraffic ? "bg-primary" : "bg-muted"}`}
 						aria-label="Toggle object detection"
+						title="Object detection"
+						className="flex flex-col items-center gap-1.5"
 					>
-						<span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${showTraffic ? "translate-x-6" : "translate-x-1"}`} />
+						<div className={`flex h-12 w-12 items-center justify-center rounded-full border-2 transition-all ${showTraffic ? "border-primary bg-primary/20 shadow-[0_0_12px_rgba(234,179,8,0.4)]" : "border-border bg-card"}`}>
+							<ScanSearch size={22} className={showTraffic ? "text-primary" : "text-muted-foreground"} />
+						</div>
+						<span className={`text-[10px] font-bold uppercase tracking-wide ${showTraffic ? "text-primary" : "text-muted-foreground"}`}>
+							{showTraffic ? "ON" : "Scan"}
+						</span>
 					</button>
 				</div>
 
@@ -1451,7 +1457,7 @@ export default function RecordView() {
 			)}
 
 			{savedToast && (
-				<div className="fixed bottom-28 inset-x-0 flex justify-center z-50 pointer-events-none">
+				<div className="fixed top-20 inset-x-0 flex justify-center z-50 pointer-events-none">
 					<div className="rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-white dark:text-black shadow-lg">
 						Video saved
 					</div>
