@@ -1,6 +1,6 @@
 // src/components/DriverFeedback.tsx
 import { useState } from "react";
-import { X, Camera, Eye, AlertTriangle, Car, ChevronDown, ChevronUp } from "lucide-react";
+import { X, Camera, Eye, AlertTriangle, Car, ChevronDown, ChevronUp, Link2, ExternalLink } from "lucide-react";
 
 export type SessionEvent = {
   id: string;
@@ -20,6 +20,7 @@ export type SessionData = {
   startedAt: string;
   endedAt: string | null;
   events: SessionEvent[];
+  txHash?: string | null;
 };
 
 type Props = {
@@ -138,6 +139,23 @@ export function DriverFeedback({ sessionData, onClose, isOpen }: Props) {
               </div>
             ))}
           </div>
+
+          {/* Blockchain proof */}
+          {sessionData.txHash && (
+            <a
+              href={`https://sepolia.basescan.org/tx/${sessionData.txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 flex items-center gap-2.5 rounded-xl bg-emerald-950/50 border border-emerald-800/40 px-4 py-2.5 transition hover:bg-emerald-950/70"
+            >
+              <Link2 size={14} className="shrink-0 text-emerald-400" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold text-emerald-400">Blockchain verified</p>
+                <p className="truncate text-[10px] font-mono text-emerald-400/60">{sessionData.txHash}</p>
+              </div>
+              <ExternalLink size={12} className="shrink-0 text-emerald-400/60" />
+            </a>
+          )}
 
           {/* Stats row */}
           <div className="mt-5 grid grid-cols-3 gap-2">

@@ -165,6 +165,7 @@ export default function RecordView() {
 	const [sessionData, setSessionData] = useState<SessionData | null>(null);
 	const [showReport, setShowReport] = useState(false);
 	const [ending, setEnding] = useState(false);
+	const [endingStep, setEndingStep] = useState("Uploading to AWS S3...");
 	const [sessionScore, setSessionScore] = useState<number | null>(null);
 	const [liveLog, setLiveLog] = useState<string[]>([]);
 	const [showTraffic, setShowTraffic] = useState(false);
@@ -199,6 +200,22 @@ export default function RecordView() {
 			liveLogRef.current.scrollTop = liveLogRef.current.scrollHeight;
 		}
 	}, [liveLog]);
+
+	// for simplicity, we're using a simple state machine to show the ending step
+	useEffect(() => {
+		if (!ending) {
+			setEndingStep("Uploading to AWS S3...");
+			return;
+		}
+		const jitter = () => (Math.random() - 0.5) * 1000;
+		const t1 = setTimeout(() => {
+			setEndingStep("Uploading hash to Base Sepolia Testnet...");
+		}, 2000 + jitter());
+		const t2 = setTimeout(() => {
+			setEndingStep("Generating drive summary...");
+		}, 1500 + 1000 + jitter() + jitter());
+		return () => { clearTimeout(t1); clearTimeout(t2); };
+	}, [ending]);
 
 	const addLog = useCallback((msg: string) => {
 		const ts = new Date().toLocaleTimeString("en-AU", {
@@ -602,6 +619,7 @@ export default function RecordView() {
 						severity: e.severity,
 						metadata: e.metadata,
 					})),
+					txHash: (data as any).txHash ?? null,
 				});
 				setSessionScore(data.score ?? 0);
 				setShowReport(true);
@@ -1401,7 +1419,7 @@ export default function RecordView() {
 					<div className="flex flex-col items-center gap-3">
 						<div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-foreground" />
 						<p className="text-sm text-muted-foreground">
-							Generating drive summary...
+							{endingStep}
 						</p>
 					</div>
 				</div>

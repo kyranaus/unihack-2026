@@ -89,13 +89,20 @@ function ReplayPage() {
         client.listDriveSessions({}).catch(() => ({ sessions: [] })),
       ]);
 
-      // Don't load blobs upfront — only store metas, resolve URLs lazily when selected.
-      const localEntries: DriveEntry[] = localMetas.map((meta) => ({
-        meta,
-        url: "",
-        backUrl: null,
-        source: "local" as const,
-      }));
+      const serverSessionMap = new Map(
+        serverResult.sessions.map((s) => [s.id, s]),
+      );
+
+      const localEntries: DriveEntry[] = localMetas.map((meta) => {
+        const serverSession = meta.sessionId ? serverSessionMap.get(meta.sessionId) : undefined;
+        return {
+          meta,
+          url: "",
+          backUrl: null,
+          source: "local" as const,
+          txHash: serverSession?.txHash ?? null,
+        };
+      });
 
       const localSessionIds = new Set(localMetas.map((m) => m.sessionId).filter(Boolean));
       const cloudEntries: DriveEntry[] = serverResult.sessions
@@ -389,6 +396,7 @@ function ReplayPage() {
                         severity: e.severity,
                         metadata: e.metadata,
                       })),
+                      txHash: (data as any).txHash ?? null,
                     });
                   } catch (err) {
                     console.error("Failed to fetch session:", err);
@@ -435,7 +443,7 @@ function ReplayPage() {
                       <div>
                         <p className="text-sm font-semibold">
                           {relDate(d.meta.timestamp)}
-                          {d.source === "cloud" && (
+                          {(
                             <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary">
                             <Cloud size={9} /> Cloud
                           </span>
