@@ -167,7 +167,8 @@ export default function RecordView() {
 	const [ending, setEnding] = useState(false);
 	const [sessionScore, setSessionScore] = useState<number | null>(null);
 	const [liveLog, setLiveLog] = useState<string[]>([]);
-	const [showTraffic, setShowTraffic] = useState(true);
+	const [showTraffic, setShowTraffic] = useState(false);
+	const [showTrafficWarning, setShowTrafficWarning] = useState(false);
 
 	// Emergency overlay
 	const [emergencyTriggered, setEmergencyTriggered] = useState(false);
@@ -1068,7 +1069,6 @@ export default function RecordView() {
 					ref={backCamera.videoRef}
 					onClick={() => {
 						if (!isSingleCam && activeCamera === "front") handleFlipCamera();
-						else if (activeCamera === "back") setShowTraffic((v) => !v);
 					}}
 					className={
 						activeCamera === "back"
@@ -1364,6 +1364,25 @@ export default function RecordView() {
 					/>
 				</button>
 
+				{/* Object detection toggle */}
+				<div className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
+					<div>
+						<p className="text-sm font-medium text-foreground">Object Detection</p>
+						<p className="text-xs text-muted-foreground">Detects vehicles, pedestrians &amp; signs</p>
+					</div>
+					<button
+						type="button"
+						onClick={() => {
+							if (!showTraffic) setShowTrafficWarning(true);
+							else setShowTraffic(false);
+						}}
+						className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${showTraffic ? "bg-primary" : "bg-muted"}`}
+						aria-label="Toggle object detection"
+					>
+						<span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${showTraffic ? "translate-x-6" : "translate-x-1"}`} />
+					</button>
+				</div>
+
 				{/* Live log */}
 				{liveLog.length > 0 && (
 					<div
@@ -1402,6 +1421,43 @@ export default function RecordView() {
 						<p className="text-sm text-muted-foreground">
 							Generating drive summary...
 						</p>
+					</div>
+				</div>
+			)}
+
+			{/* Object detection hardware warning */}
+			{showTrafficWarning && (
+				<div className="fixed inset-0 z-[90] flex items-end justify-center p-4 bg-black/60 backdrop-blur-sm">
+					<div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl">
+						<div className="mb-4 flex items-start gap-3">
+							<div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-500/15">
+								<svg className="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+									<path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+								</svg>
+							</div>
+							<div>
+								<h3 className="text-sm font-semibold text-foreground">Hardware Requirement</h3>
+								<p className="mt-1 text-sm text-muted-foreground leading-relaxed">
+									Object detection runs a real-time neural network on your device. On devices without dedicated AI or GPU hardware, this may significantly reduce performance during recording.
+								</p>
+							</div>
+						</div>
+						<div className="flex gap-3">
+							<button
+								type="button"
+								onClick={() => setShowTrafficWarning(false)}
+								className="flex-1 rounded-xl border border-border bg-muted px-4 py-2.5 text-sm font-medium text-foreground transition-colors active:opacity-70"
+							>
+								Cancel
+							</button>
+							<button
+								type="button"
+								onClick={() => { setShowTraffic(true); setShowTrafficWarning(false); }}
+								className="flex-1 rounded-xl bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-colors active:opacity-70"
+							>
+								Enable Anyway
+							</button>
+						</div>
 					</div>
 				</div>
 			)}
