@@ -8,11 +8,9 @@ const DotLottieReact = lazy(() =>
   import("@lottiefiles/dotlottie-react").then((m) => ({ default: m.DotLottieReact }))
 )
 import { BrandLogo } from "#/components/home/BrandLogo"
-import { Smartphone, Video } from "lucide-react"
+import { Video } from "lucide-react"
 
 export const Route = createFileRoute("/_authed/")({ component: App })
-
-const TARGET_URL = `https://beesafe.unihack.me/`
 
 // Brush-stroke reveal — each character pivots from the top like a loaded brush
 const brushContainer = {
@@ -103,9 +101,15 @@ function App() {
   const navigate = useNavigate()
   const { user } = Route.useRouteContext()
   const username = user.name || "Driver"
-  const [qrDataUrl, setQrDataUrl] = useState<string>("")
+  const [qrDataUrl, setQrDataUrl] = useState("")
   const titleRef = useRef<HTMLDivElement>(null)
   const [beeTop, setBeeTop] = useState(0)
+
+  useEffect(() => {
+    QRCode.toDataURL("https://beesafe.unihack.me/", { width: 160, margin: 2, color: { dark: "#000000", light: "#FFFFFF" } })
+      .then(setQrDataUrl)
+      .catch(console.error)
+  }, [])
 
   useEffect(() => {
     const el = titleRef.current
@@ -117,49 +121,22 @@ function App() {
     return () => obs.disconnect()
   }, [])
 
-  useEffect(() => {
-    QRCode.toDataURL(TARGET_URL, {
-      width: 180,
-      margin: 2,
-      color: {
-        dark: "#000000",
-        light: "#FFFFFF",
-      },
-    })
-      .then(setQrDataUrl)
-      .catch(console.error)
-  }, [])
-
   return (
     <main className="h-dvh overflow-hidden bg-background text-foreground relative">
       <BeeAnimations />
 
-      {/* ── Desktop splash (hidden on mobile) ── */}
-      <div className="hidden md:flex h-full flex-col items-center justify-center gap-10 px-8 pt-14 relative z-10">
+      {/* ── Desktop (hidden on mobile) ── */}
+      <div className="hidden md:flex h-full flex-col items-center justify-center gap-8 relative z-10">
         <BrandLogo />
-        <div className="flex flex-col items-center gap-4">
-          {/* QR code */}
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-lg">
+        <div className="flex flex-col items-center gap-3">
+          <div className="rounded-2xl border border-border bg-card p-3 shadow-lg">
             {qrDataUrl ? (
-              <img
-                src={qrDataUrl}
-                alt="QR code to open BeeSafe on mobile"
-                width={180}
-                height={180}
-                className="rounded-xl"
-              />
+              <img src={qrDataUrl} alt="Scan to open BeeSafe on mobile" width={160} height={160} className="rounded-xl" />
             ) : (
-              <div className="h-[180px] w-[180px] animate-pulse rounded-xl bg-muted" />
+              <div className="h-40 w-40 animate-pulse rounded-xl bg-muted" />
             )}
           </div>
-
-          {/* Disclaimer */}
-          <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2">
-            <Smartphone size={14} className="text-primary shrink-0" />
-            <p className="text-xs text-muted-foreground">
-              Best experienced on mobile — scan to open on your phone
-            </p>
-          </div>
+          <p className="text-[11px] text-muted-foreground">Scan to open on your phone</p>
         </div>
       </div>
 
