@@ -131,11 +131,11 @@ function App() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-background text-foreground relative">
+    <main className="h-dvh overflow-hidden bg-background text-foreground relative">
       <BeeAnimations />
 
       {/* ── Desktop splash (hidden on mobile) ── */}
-      <div className="hidden md:flex min-h-screen flex-col items-center justify-center gap-10 px-8 pt-14 relative z-10">
+      <div className="hidden md:flex h-full flex-col items-center justify-center gap-10 px-8 pt-14 relative z-10">
         <BrandLogo />
         <div className="flex flex-col items-center gap-4">
           {/* QR code */}
@@ -164,7 +164,7 @@ function App() {
       </div>
 
       {/* ── Mobile app (hidden on desktop) ── */}
-      <div className="md:hidden relative mx-auto min-h-screen max-w-md px-4 pb-28 z-10">
+      <div className="md:hidden relative mx-auto h-full max-w-md px-4 z-10">
 
         {/* Big bee — scrolls with content, positioned below username */}
         <motion.div
