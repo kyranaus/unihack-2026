@@ -210,10 +210,10 @@ export default function RecordView() {
 		const jitter = () => (Math.random() - 0.5) * 1000;
 		const t1 = setTimeout(() => {
 			setEndingStep("Uploading hash to Base Sepolia Testnet...");
-		}, 2000 + jitter());
+		}, 800 + jitter());
 		const t2 = setTimeout(() => {
 			setEndingStep("Generating drive summary...");
-		}, 1500 + 1000 + jitter() + jitter());
+		}, 800 + 500 + jitter() + jitter());
 		return () => { clearTimeout(t1); clearTimeout(t2); };
 	}, [ending]);
 
