@@ -1,6 +1,6 @@
 // src/components/RecordView.tsx
 import { useEffect, useRef, useState, useCallback } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ScanSearch } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -137,10 +137,7 @@ export default function RecordView() {
 	// Recording — in single mode only one recorder is active at a time
 	const frontRecorder = useMediaRecorder(frontStream);
 	const backRecorder = useMediaRecorder(backCamera.stream, {
-		onChunk: (chunk) => {
-			console.log(`[BackRec] chunk ${(chunk.size / 1024).toFixed(1)}KB`);
-			streamUpload.pushChunk(chunk);
-		},
+		onChunk: streamUpload.pushChunk,
 	});
 	const isRecording = frontRecorder.isRecording || backRecorder.isRecording;
 	const wantRecordingRef = useRef(false);
@@ -420,9 +417,8 @@ export default function RecordView() {
 			if (activeCamera === "front") frontRecorder.startRecording();
 			else backRecorder.startRecording();
 		} else {
-			// Dual-cam (Android): back recorder streams to S3, composite canvas captures both cameras
-			// frontRecorder is NOT started — it would accumulate all chunks in memory with no benefit
-			// since the composite already captures the front camera.
+				// Dual-cam (Android): front + back both record locally; composite streams to S3
+			frontRecorder.startRecording();
 			backRecorder.startRecording();
 
 			// 640x360 composite (was 1280x720) — 4x less canvas memory/GPU load on mobile
@@ -1319,6 +1315,8 @@ export default function RecordView() {
 						}}
 						className="flex items-center gap-2 rounded-full bg-muted px-3 py-2 active:scale-95 transition-transform"
 						aria-label="Toggle object detection"
+						title="Object detection"
+						className="flex flex-col items-center gap-1.5"
 					>
 						<span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">Detect</span>
 						<span className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${showTraffic ? "bg-primary" : "bg-border"}`}>
