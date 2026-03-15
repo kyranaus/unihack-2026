@@ -54,6 +54,7 @@ import { useTrafficDetection } from "#/hooks/use-traffic-detection";
 import { TrafficOverlay } from "#/components/record/TrafficOverlay";
 import { usePulloverSuggestion } from "#/hooks/usePulloverSuggestion";
 import { PulloverSuggestion } from "#/components/PulloverSuggestion";
+import { NavBrand } from "./NavBrand";
 
 const MAX_RECORD_SECS = 5 * 60;
 const ALARM_SRC = "/denielcz-speed-limit-violation-alert-463066.mp3";
@@ -978,44 +979,16 @@ export default function RecordView() {
 	}
 
 	return (
-		<div className="flex h-dvh flex-col bg-background">
+		<div className="flex h-full min-h-0 flex-col px-4 bg-background">
 			{/* Title */}
 			<div
 				className="flex flex-none items-center justify-between px-4 pb-2"
 				style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
 			>
-				{/* Front · Back toggle */}
-				<div className="flex items-center rounded-full bg-foreground/10 p-0.5">
-					{(["front", "back"] as const).map((cam) => (
-						<button
-							key={cam}
-							type="button"
-							onClick={() => {
-								if (cam !== activeCamera) handleFlipCamera();
-							}}
-							className={`rounded-full px-3 py-1 text-xs font-semibold capitalize transition-colors ${
-								activeCamera === cam
-									? "bg-foreground text-background"
-									: "text-foreground/60"
-							}`}
-						>
-							{cam}
-						</button>
-					))}
-				</div>
-				<span className="text-base font-bold tracking-wide text-foreground">
-					Record
-				</span>
-				<div className="w-16 text-right">
-					<span className="font-mono text-sm font-bold text-foreground">
-						{speedKmh != null ? Math.round(speedKmh) : "–"}
-					</span>
-					<span className="text-[10px] text-foreground/50"> km/h</span>
-				</div>
 			</div>
 
 			{/* Video window */}
-			<div className="relative mx-3 mb-2 mt-1 h-[58vh] flex-none overflow-hidden rounded-2xl bg-zinc-900">
+			<div className="relative mx-auto mb-2 mt-1 h-[58vh] w-full max-w-3xl flex-none overflow-hidden rounded-2xl bg-zinc-900">
 				{/* Crash banner */}
 				{crash.isCrashLikely && (
 					<div className="absolute inset-x-0 top-0 z-30 flex justify-center px-4 pt-3">
@@ -1312,7 +1285,7 @@ export default function RecordView() {
 			</div>
 
 			{/* Controls */}
-			<div className="flex flex-none flex-col items-center gap-3 pb-6 pt-2">
+			<div className="flex flex-none flex-col items-center gap-3 pb-4 pt-2">
 				<button
 					type="button"
 					onClick={() =>
@@ -1328,24 +1301,22 @@ export default function RecordView() {
 				</button>
 
 				{/* Live log */}
-				{liveLog.length > 0 && (
-					<div
-						ref={liveLogRef}
-						className="mx-3 w-full max-h-24 overflow-y-auto rounded-xl border border-border bg-card px-3 py-2"
-					>
-						<p className="mb-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
-							Live Log
+				<div
+					ref={liveLogRef}
+					className="mx-3 max-w-3xl w-full h-24 overflow-y-auto rounded-xl border border-border bg-card px-3 py-2"
+				>
+					<p className="mb-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+						Live Log
+					</p>
+					{liveLog.map((line, i) => (
+						<p
+							key={i}
+							className="font-mono text-[10px] leading-relaxed text-foreground/70"
+						>
+							{line}
 						</p>
-						{liveLog.map((line, i) => (
-							<p
-								key={i}
-								className="font-mono text-[10px] leading-relaxed text-foreground/70"
-							>
-								{line}
-							</p>
-						))}
-					</div>
-				)}
+					))}
+				</div>
 			</div>
 
 			{/* Drive report modal */}
