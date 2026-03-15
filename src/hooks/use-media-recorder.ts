@@ -27,11 +27,8 @@ export function useMediaRecorder(stream: MediaStream | null, options?: Options) 
 
 		recorder.ondataavailable = (e) => {
 			if (e.data.size > 0) {
+				chunksRef.current.push(e.data);
 				onChunkRef.current?.(e.data);
-				// Only accumulate locally when not streaming (no onChunk callback)
-				if (!onChunkRef.current) {
-					chunksRef.current.push(e.data);
-				}
 			}
 		};
 
