@@ -51,9 +51,14 @@ export function useMediaRecorder(stream: MediaStream | null, options?: Options) 
 			}
 
 			recorder.onstop = () => {
+				if (chunksRef.current.length === 0) {
+					resolve(null);
+					return;
+				}
 				const blob = new Blob(chunksRef.current, {
 					type: recorder.mimeType || "video/webm",
 				});
+				chunksRef.current = [];
 				resolve(blob);
 			};
 

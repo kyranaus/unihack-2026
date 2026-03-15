@@ -6,6 +6,7 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { Navbar } from '../components/Navbar'
+import { Toaster } from '../components/ui/sonner'
 
 import TanStackQueryProvider from '../integrations/tanstack-query/root-provider'
 
@@ -57,6 +58,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <TanStackQueryProvider>
           {children}
         </TanStackQueryProvider>
+        <Toaster position="top-right" />
         <Scripts />
       </body>
     </html>
@@ -68,9 +70,13 @@ function RootLayout() {
   const showNavbar = !HIDE_NAVBAR_ROUTES.includes(pathname)
 
   return (
-    <>
-      <Outlet />
+    <div className="flex h-dvh flex-col overflow-hidden">
+      {/* Spacer when navbar is shown so the scroll container sits below it; scrollbar runs full height to bottom */}
+      {showNavbar && <div className="h-16 shrink-0" aria-hidden />}
+      <div className="main-scroll min-h-0 flex-1 overflow-y-auto">
+        <Outlet />
+      </div>
       {showNavbar && <Navbar />}
-    </>
+    </div>
   )
 }

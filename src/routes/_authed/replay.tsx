@@ -79,7 +79,8 @@ function ReplayPage() {
   const frontVideoRef = useRef<HTMLVideoElement>(null);
   const backVideoRef = useRef<HTMLVideoElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
-
+  // Tracks blob URLs we created so we can revoke them on unmount
+  const blobUrlsRef = useRef<string[]>([]);
   const loadDrives = useCallback(async () => {
     setLoadingDrives(true);
     try {
@@ -88,14 +89,20 @@ function ReplayPage() {
         client.listDriveSessions({}).catch(() => ({ sessions: [] })),
       ]);
 
-      const localEntries: DriveEntry[] = await Promise.all(
-        localMetas.map(async (meta) => {
-          const rec = await getRecording(meta.id);
-          const url = rec ? URL.createObjectURL(rec.videoBlob) : "";
-          const backUrl = rec?.backVideoBlob ? URL.createObjectURL(rec.backVideoBlob) : null;
-          return { meta, url, backUrl, source: "local" as const, speedTrack: rec?.speedTrack };
-        }),
+      const serverSessionMap = new Map(
+        serverResult.sessions.map((s) => [s.id, s]),
       );
+
+      const localEntries: DriveEntry[] = localMetas.map((meta) => {
+        const serverSession = meta.sessionId ? serverSessionMap.get(meta.sessionId) : undefined;
+        return {
+          meta,
+          url: "",
+          backUrl: null,
+          source: "local" as const,
+          txHash: serverSession?.txHash ?? null,
+        };
+      });
 
       const localSessionIds = new Set(localMetas.map((m) => m.sessionId).filter(Boolean));
       const cloudEntries: DriveEntry[] = serverResult.sessions
@@ -122,15 +129,7 @@ function ReplayPage() {
         (a, b) => b.meta.timestamp - a.meta.timestamp,
       );
 
-      setDrives((prev) => {
-        prev.forEach((d) => {
-          if (d.source === "local") {
-            if (d.url) URL.revokeObjectURL(d.url);
-            if (d.backUrl) URL.revokeObjectURL(d.backUrl);
-          }
-        });
-        return all;
-      });
+      setDrives(all);
       setSelectedIdx(0);
     } catch (e) {
       console.error("Failed to load recordings", e);
@@ -141,11 +140,49 @@ function ReplayPage() {
 
   useEffect(() => { loadDrives(); }, [loadDrives, refreshKey]);
 
+  // Revoke all blob URLs we created when the component unmounts.
   useEffect(() => {
-    const onFocus = () => loadDrives();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [loadDrives]);
+    return () => {
+      for (const url of blobUrlsRef.current) URL.revokeObjectURL(url);
+    };
+  }, []);
+
+  // Lazily resolve URL for the selected drive (local blob or cloud signed URL).
+  // Depends on selectedIdx AND drives so the effect fires after initial load
+  // when drives are populated. The bail-out check (drive.url truthy) prevents
+  // a feedback loop when setDrives updates the URL.
+  useEffect(() => {
+    const drive = drives[selectedIdx];
+    if (!drive || drive.url) return;
+
+    let cancelled = false;
+
+    if (drive.source === "local") {
+      getRecording(drive.meta.id).then((rec) => {
+        if (cancelled || !rec) return;
+        const url = URL.createObjectURL(rec.videoBlob);
+        const backUrl = rec.backVideoBlob ? URL.createObjectURL(rec.backVideoBlob) : null;
+        blobUrlsRef.current.push(url);
+        if (backUrl) blobUrlsRef.current.push(backUrl);
+        setDrives((prev) =>
+          prev.map((d) =>
+            d.meta.id === drive.meta.id
+              ? { ...d, url, backUrl, speedTrack: rec.speedTrack }
+              : d,
+          ),
+        );
+      }).catch((err) => console.error("Failed to load local recording:", err));
+    } else if (drive.source === "cloud" && drive.videoKey) {
+      client.getVideoDownloadUrl({ key: drive.videoKey }).then(({ url }) => {
+        if (cancelled) return;
+        setDrives((prev) =>
+          prev.map((d) => (d.videoKey === drive.videoKey ? { ...d, url } : d)),
+        );
+      }).catch((err) => console.error("Failed to get cloud video URL:", err));
+    }
+
+    return () => { cancelled = true; };
+  }, [selectedIdx, drives]);
 
   // Reset player state when selected drive changes
   useEffect(() => {
@@ -154,19 +191,6 @@ function ReplayPage() {
     setDuration(drives[selectedIdx]?.meta.duration ?? 0);
     setActiveCamera(drives[selectedIdx]?.backUrl ? "back" : "front");
   }, [selectedIdx, drives]);
-
-  // Lazily resolve cloud video URL when a cloud drive is selected
-  useEffect(() => {
-    const drive = drives[selectedIdx];
-    if (drive?.source === "cloud" && !drive.url && drive.videoKey) {
-      const key = drive.videoKey;
-      client.getVideoDownloadUrl({ key }).then(({ url }) => {
-        setDrives((prev) =>
-          prev.map((d) => (d.videoKey === key ? { ...d, url } : d)),
-        );
-      }).catch((err) => console.error("Failed to get cloud video URL:", err));
-    }
-  }, [selectedIdx]);
 
   const getPercent = () => (duration > 0 ? (currentTime / duration) * 100 : 0);
 
@@ -207,8 +231,8 @@ function ReplayPage() {
   const dateStr = selected ? new Date(selected.meta.timestamp).toISOString().slice(0, 10) : "recording";
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto w-full max-w-md md:max-w-5xl px-4 md:px-8 pt-10 md:pt-20 pb-32 md:pb-12 flex flex-col gap-4">
+    <main className="min-h-0 bg-background text-foreground">
+      <div className="mx-auto w-full max-w-3xl px-8 pt-4 pb-32 md:pb-12 flex flex-col gap-4">
 
         <header className="mb-2 shrink-0">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">DashCam</p>
@@ -234,16 +258,22 @@ function ReplayPage() {
                       : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
                     onClick={() => activeCamera === "back" && setActiveCamera("front")}
                     playsInline
+                    preload="auto"
                     onLoadedMetadata={() => {
                       const vidDuration = frontVideoRef.current?.duration;
                       setDuration(
-                        vidDuration && Number.isFinite(vidDuration) 
-                          ? vidDuration 
+                        vidDuration && Number.isFinite(vidDuration)
+                          ? vidDuration
                           : selected.meta.duration
                       );
                     }}
                     onTimeUpdate={() => setCurrentTime(frontVideoRef.current?.currentTime ?? 0)}
                     onEnded={() => setPlaying(false)}
+                    onWaiting={() => {
+                      // Resume after a stall — common with MediaRecorder WebM files that lack seek tables
+                      const v = frontVideoRef.current;
+                      if (v) v.play().catch(() => {});
+                    }}
                   />
 
                   {/* Back cam (PiP — only if available) */}
@@ -257,6 +287,11 @@ function ReplayPage() {
                         : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
                       onClick={() => activeCamera === "front" && setActiveCamera("back")}
                       playsInline
+                      preload="auto"
+                      onWaiting={() => {
+                        const v = backVideoRef.current;
+                        if (v) v.play().catch(() => {});
+                      }}
                     />
                   )}
                 </>
@@ -361,6 +396,7 @@ function ReplayPage() {
                         severity: e.severity,
                         metadata: e.metadata,
                       })),
+                      txHash: (data as any).txHash ?? null,
                     });
                   } catch (err) {
                     console.error("Failed to fetch session:", err);
@@ -401,13 +437,13 @@ function ReplayPage() {
                     <button
                       key={d.meta.id}
                       onClick={() => setSelectedIdx(i)}
-                      className="flex items-center justify-between px-5 py-3 text-left transition hover:bg-secondary/50"
+                      className="flex items-center justify-between px-5 py-3 text-left transition cursor-pointer hover:bg-secondary/50"
                       style={selectedIdx === i ? { backgroundColor: "rgba(234,179,8,0.06)" } : {}}
                     >
                       <div>
                         <p className="text-sm font-semibold">
                           {relDate(d.meta.timestamp)}
-                          {d.source === "cloud" && (
+                          {(
                             <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary">
                             <Cloud size={9} /> Cloud
                           </span>

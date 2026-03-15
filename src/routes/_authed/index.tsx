@@ -1,6 +1,6 @@
 // src/routes/_authed/index.tsx
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { lazy, useEffect, useRef, useState } from "react"
+import { lazy, useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import QRCode from "qrcode"
 
@@ -8,11 +8,9 @@ const DotLottieReact = lazy(() =>
   import("@lottiefiles/dotlottie-react").then((m) => ({ default: m.DotLottieReact }))
 )
 import { BrandLogo } from "#/components/home/BrandLogo"
-import { Smartphone, Video } from "lucide-react"
+import { Video } from "lucide-react"
 
 export const Route = createFileRoute("/_authed/")({ component: App })
-
-const TARGET_URL = `https://beesafe.unihack.me/`
 
 // Brush-stroke reveal — each character pivots from the top like a loaded brush
 const brushContainer = {
@@ -103,116 +101,77 @@ function App() {
   const navigate = useNavigate()
   const { user } = Route.useRouteContext()
   const username = user.name || "Driver"
-  const [qrDataUrl, setQrDataUrl] = useState<string>("")
-  const titleRef = useRef<HTMLDivElement>(null)
-  const [beeTop, setBeeTop] = useState(0)
+  const [qrDataUrl, setQrDataUrl] = useState("")
 
   useEffect(() => {
-    const el = titleRef.current
-    if (!el) return
-    const update = () => setBeeTop(el.offsetTop + el.offsetHeight + 16)
-    update()
-    const obs = new ResizeObserver(update)
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [])
-
-  useEffect(() => {
-    QRCode.toDataURL(TARGET_URL, {
-      width: 180,
-      margin: 2,
-      color: {
-        dark: "#000000",
-        light: "#FFFFFF",
-      },
-    })
+    QRCode.toDataURL("https://beesafe.unihack.me/", { width: 160, margin: 2, color: { dark: "#000000", light: "#FFFFFF" } })
       .then(setQrDataUrl)
       .catch(console.error)
   }, [])
 
   return (
-    <main className="min-h-screen bg-background text-foreground relative">
+    <main className="h-dvh overflow-hidden bg-background text-foreground relative">
       <BeeAnimations />
 
-      {/* ── Desktop splash (hidden on mobile) ── */}
-      <div className="hidden md:flex min-h-screen flex-col items-center justify-center gap-10 px-8 pt-14 relative z-10">
+      {/* ── Desktop (hidden on mobile) ── */}
+      <div className="hidden md:flex h-full flex-col items-center justify-center gap-8 relative z-10">
         <BrandLogo />
-        <div className="flex flex-col items-center gap-4">
-          {/* QR code */}
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-lg">
+        <div className="flex flex-col items-center gap-3">
+          <div className="rounded-2xl border border-border bg-card p-3 shadow-lg">
             {qrDataUrl ? (
-              <img
-                src={qrDataUrl}
-                alt="QR code to open BeeSafe on mobile"
-                width={180}
-                height={180}
-                className="rounded-xl"
-              />
+              <img src={qrDataUrl} alt="Scan to open BeeSafe on mobile" width={160} height={160} className="rounded-xl" />
             ) : (
-              <div className="h-[180px] w-[180px] animate-pulse rounded-xl bg-muted" />
+              <div className="h-40 w-40 animate-pulse rounded-xl bg-muted" />
             )}
           </div>
-
-          {/* Disclaimer */}
-          <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2">
-            <Smartphone size={14} className="text-primary shrink-0" />
-            <p className="text-xs text-muted-foreground">
-              Best experienced on mobile — scan to open on your phone
-            </p>
-          </div>
+          <p className="text-[11px] text-muted-foreground">Scan to open on your phone</p>
         </div>
       </div>
 
       {/* ── Mobile app (hidden on desktop) ── */}
-      <div className="md:hidden relative mx-auto min-h-screen max-w-md px-4 pb-28 z-10">
+      <div className="md:hidden relative mx-auto h-full max-w-md px-4 z-10">
 
-        {/* Big bee — scrolls with content, positioned below username */}
+        {/* Zone 1 — BeeSafe logo, top 12% */}
+        <div className="absolute inset-x-0 flex justify-center" style={{ top: "12%" }}>
+          <BrandLogo />
+        </div>
+
+        {/* Zone 2 — Big bee, flies in at 32% — well clear of logo above and text below */}
         <motion.div
           className="absolute pointer-events-none"
-          style={{ top: beeTop || "60%" }}
+          style={{ top: "32%" }}
           initial={{ x: "-160px" }}
-          animate={{ x: "calc(40vw)" }}
-          transition={{ duration: 4, ease: "easeOut" }}
+          animate={{ x: "calc(35vw)" }}
+          transition={{ duration: 3, ease: "easeOut" }}
         >
           <motion.div
-            animate={{ y: [0, -5, 0, 5, 0] }}
+            animate={{ y: [0, -18, 0, 18, 0] }}
             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           >
             <DotLottieReact src="/flyingBee.lottie" autoplay loop style={{ width: 90, height: 90 }} />
           </motion.div>
         </motion.div>
 
-        {/* Title block — centred, nudged above midpoint */}
-        <div
-          ref={titleRef}
-          className="absolute inset-x-0 flex flex-col items-center gap-4"
-          style={{ top: "25%" }}
-        >
-          <BrandLogo />
-
-          {/* Welcome greeting below the logo */}
-          <div className="flex flex-col items-center gap-1 mt-30">
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 2.0, duration: 0.6, ease: "easeOut" }}
-              className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
-            >
-              Welcome back
-            </motion.p>
-
-            <div className="mt-1">
-              <BrushName name={username} />
-            </div>
+        {/* Zone 3 — Welcome text, 56% — always below bee (bee top 32% + 90px + 18px float ≈ 50%) */}
+        <div className="absolute inset-x-0 flex flex-col items-center gap-1" style={{ top: "56%" }}>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.3, duration: 1, ease: "easeOut" }}
+            className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
+          >
+            Welcome back
+          </motion.p>
+          <div className="mt-1">
+            <BrushName name={username} />
           </div>
-
         </div>
 
-        {/* Start recording button — floats above the nav bar */}
+        {/* Zone 4 — Start recording button, above nav bar */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 3.6, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ delay: 2.0, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
           className="absolute bottom-32 left-0 right-0 flex justify-center px-4"
         >
           <button

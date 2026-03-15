@@ -110,7 +110,10 @@ html.light {
 }
 
 html,
-body,
+body {
+  height: 100%;
+}
+
 #app {
   min-height: 100%;
 }
@@ -123,10 +126,29 @@ body,
     background-color: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans);
-    overflow-x: hidden;
+    overflow: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+}
+
+/* ─── Main scroll container: custom scrollbar, full height below navbar ─── */
+.main-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
+}
+.main-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.main-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.main-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--muted);
+  border-radius: 4px;
+}
+.main-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
 }
 
 /* ─── InteractiveMenu component tokens ───────────────────── */
