@@ -565,6 +565,16 @@ export default function RecordView() {
 			const uploaded = await streamUpload.finish();
 			addLog(uploaded ? "Cloud upload complete" : "Cloud upload skipped");
 
+			if (uploaded) {
+				addLog("Storing video hash on blockchain...");
+				try {
+					const { txHash } = await client.storeVideoHash({ sessionId });
+					addLog(`Blockchain tx: ${txHash.slice(0, 16)}...`);
+				} catch (err) {
+					addLog(`Blockchain hash failed: ${err}`);
+				}
+			}
+
 			addLog("Ending session, generating summary...");
 			try {
 				await client.endSession({ sessionId });

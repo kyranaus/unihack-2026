@@ -81,8 +81,6 @@ function ReplayPage() {
   const trackRef = useRef<HTMLDivElement>(null);
   // Tracks blob URLs we created so we can revoke them on unmount
   const blobUrlsRef = useRef<string[]>([]);
-  const drivesRef = useRef<DriveEntry[]>([]);
-
   const loadDrives = useCallback(async () => {
     setLoadingDrives(true);
     try {
@@ -135,11 +133,6 @@ function ReplayPage() {
 
   useEffect(() => { loadDrives(); }, [loadDrives, refreshKey]);
 
-  // Keep drivesRef in sync so the lazy-load effect can read it without depending on `drives`.
-  useEffect(() => {
-    drivesRef.current = drives;
-  }, [drives]);
-
   // Revoke all blob URLs we created when the component unmounts.
   useEffect(() => {
     return () => {
@@ -148,10 +141,11 @@ function ReplayPage() {
   }, []);
 
   // Lazily resolve URL for the selected drive (local blob or cloud signed URL).
-  // Depends only on selectedIdx — NOT on `drives` — so setDrives inside the
-  // .then() callback doesn't trigger a cleanup that revokes the URL we just made.
+  // Depends on selectedIdx AND drives so the effect fires after initial load
+  // when drives are populated. The bail-out check (drive.url truthy) prevents
+  // a feedback loop when setDrives updates the URL.
   useEffect(() => {
-    const drive = drivesRef.current[selectedIdx];
+    const drive = drives[selectedIdx];
     if (!drive || drive.url) return;
 
     let cancelled = false;
@@ -181,7 +175,7 @@ function ReplayPage() {
     }
 
     return () => { cancelled = true; };
-  }, [selectedIdx]);
+  }, [selectedIdx, drives]);
 
   // Reset player state when selected drive changes
   useEffect(() => {
@@ -435,7 +429,7 @@ function ReplayPage() {
                     <button
                       key={d.meta.id}
                       onClick={() => setSelectedIdx(i)}
-                      className="flex items-center justify-between px-5 py-3 text-left transition hover:bg-secondary/50"
+                      className="flex items-center justify-between px-5 py-3 text-left transition cursor-pointer hover:bg-secondary/50"
                       style={selectedIdx === i ? { backgroundColor: "rgba(234,179,8,0.06)" } : {}}
                     >
                       <div>
