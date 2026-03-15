@@ -134,14 +134,16 @@ export default function RecordView() {
 	// Recording — in single mode only one recorder is active at a time
 	const frontRecorder = useMediaRecorder(frontStream);
 	const backRecorder = useMediaRecorder(backCamera.stream, {
-		onChunk: streamUpload.pushChunk,
+		onChunk: (chunk) => {
+			console.log(`[BackRec] chunk ${(chunk.size / 1024).toFixed(1)}KB`);
+			streamUpload.pushChunk(chunk);
+		},
 	});
 	const isRecording = frontRecorder.isRecording || backRecorder.isRecording;
 	const wantRecordingRef = useRef(false);
 
 	// Composite canvas recording refs
 	const compositeRecorderRef = useRef<MediaRecorder | null>(null);
-	const compositeChunksRef = useRef<Blob[]>([]);
 	const drawLoopActiveRef = useRef(false);
 	const compositeMainCamRef = useRef<"front" | "back">("back");
 
@@ -228,6 +230,22 @@ export default function RecordView() {
 		} catch {
 			setDebugAccel(false);
 		}
+	}, []);
+
+	// Global error/crash logging — helps diagnose what triggers the page crash
+	useEffect(() => {
+		const onError = (e: ErrorEvent) => {
+			console.error(`[CRASH] Uncaught error at ${e.filename}:${e.lineno} — ${e.message}`);
+		};
+		const onUnhandled = (e: PromiseRejectionEvent) => {
+			console.error("[CRASH] Unhandled promise rejection:", e.reason);
+		};
+		window.addEventListener("error", onError);
+		window.addEventListener("unhandledrejection", onUnhandled);
+		return () => {
+			window.removeEventListener("error", onError);
+			window.removeEventListener("unhandledrejection", onUnhandled);
+		};
 	}, []);
 
 	const { speak } = usePollyTTS();
@@ -364,6 +382,18 @@ export default function RecordView() {
 				const spd = speedKmhRef.current;
 				if (spd != null)
 					speedTrackRef.current.push({ elapsedSec: next, speedKmh: spd });
+				// Log memory every 5s to help diagnose crashes
+				if (next % 5 === 0) {
+					const mem = (performance as any).memory;
+					if (mem) {
+						const used = (mem.usedJSHeapSize / 1048576).toFixed(1);
+						const total = (mem.totalJSHeapSize / 1048576).toFixed(1);
+						const limit = (mem.jsHeapSizeLimit / 1048576).toFixed(1);
+						console.log(`[Memory] ${next}s — used=${used}MB total=${total}MB limit=${limit}MB`);
+					} else {
+						console.log(`[Memory] ${next}s — performance.memory not available`);
+					}
+				}
 				if (next >= MAX_RECORD_SECS) {
 					handleStopRecordingRef.current();
 					return 0;
@@ -376,6 +406,7 @@ export default function RecordView() {
 
 	// Recording handlers
 	const handleStartRecording = useCallback(async () => {
+		console.log(`[REC] handleStartRecording — mode=${isSingleCam ? "single" : "dual"} cam=${activeCamera}`);
 		if (isIOS) {
 			await requestMotionPermission().catch(() => {});
 		}
@@ -385,86 +416,94 @@ export default function RecordView() {
 			if (activeCamera === "front") frontRecorder.startRecording();
 			else backRecorder.startRecording();
 		} else {
-			// Dual-cam (Android): both recorders + composite canvas
-			frontRecorder.startRecording();
+			// Dual-cam (Android): back recorder streams to S3, composite canvas captures both cameras
+			// frontRecorder is NOT started — it would accumulate all chunks in memory with no benefit
+			// since the composite already captures the front camera.
 			backRecorder.startRecording();
 
+			// 640x360 composite (was 1280x720) — 4x less canvas memory/GPU load on mobile
+			const COMP_W = 640, COMP_H = 360;
 			const canvas = document.createElement("canvas");
-			canvas.width = 1280;
-			canvas.height = 720;
+			canvas.width = COMP_W;
+			canvas.height = COMP_H;
 			const ctx = canvas.getContext("2d");
-			compositeChunksRef.current = [];
 			drawLoopActiveRef.current = true;
 
-			const PIP_W = 320,
-				PIP_H = 180,
-				PIP_M = 16;
+			const PIP_W = 160,
+				PIP_H = 90,
+				PIP_M = 8;
 
-			const drawComposite = () => {
+			// Throttle composite draw to 15fps — no need to burn GPU at 60fps for a recording
+			let lastDrawTime = 0;
+			const DRAW_INTERVAL = 1000 / 15;
+			const drawComposite = (now: number) => {
 				if (!drawLoopActiveRef.current || !ctx) return;
-				const isBackMain = compositeMainCamRef.current === "back";
-				const mainVid = isBackMain
-					? backCamera.videoRef.current
-					: videoRef.current;
-				const pipVid = isBackMain
-					? videoRef.current
-					: backCamera.videoRef.current;
+				if (now - lastDrawTime >= DRAW_INTERVAL) {
+					lastDrawTime = now;
+					const isBackMain = compositeMainCamRef.current === "back";
+					const mainVid = isBackMain
+						? backCamera.videoRef.current
+						: videoRef.current;
+					const pipVid = isBackMain
+						? videoRef.current
+						: backCamera.videoRef.current;
 
-				ctx.fillStyle = "#000";
-				ctx.fillRect(0, 0, 1280, 720);
+					ctx.fillStyle = "#000";
+					ctx.fillRect(0, 0, COMP_W, COMP_H);
 
-				if (mainVid && mainVid.readyState >= 2) {
-					if (!isBackMain) {
+					if (mainVid && mainVid.readyState >= 2) {
+						if (!isBackMain) {
+							ctx.save();
+							ctx.translate(COMP_W, 0);
+							ctx.scale(-1, 1);
+							ctx.drawImage(mainVid, 0, 0, COMP_W, COMP_H);
+							ctx.restore();
+						} else {
+							ctx.drawImage(mainVid, 0, 0, COMP_W, COMP_H);
+						}
+					}
+
+					const px = PIP_M;
+					const py = PIP_M;
+					if (pipVid && pipVid.readyState >= 2) {
 						ctx.save();
-						ctx.translate(1280, 0);
-						ctx.scale(-1, 1);
-						ctx.drawImage(mainVid, 0, 0, 1280, 720);
+						ctx.beginPath();
+						ctx.roundRect(px, py, PIP_W, PIP_H, 8);
+						ctx.clip();
+						if (isBackMain) {
+							ctx.translate(px + PIP_W, py);
+							ctx.scale(-1, 1);
+							ctx.drawImage(pipVid, 0, 0, PIP_W, PIP_H);
+						} else {
+							ctx.drawImage(pipVid, px, py, PIP_W, PIP_H);
+						}
 						ctx.restore();
-					} else {
-						ctx.drawImage(mainVid, 0, 0, 1280, 720);
+						ctx.strokeStyle = "rgba(255,255,255,0.6)";
+						ctx.lineWidth = 2;
+						ctx.beginPath();
+						ctx.roundRect(px, py, PIP_W, PIP_H, 8);
+						ctx.stroke();
 					}
 				}
-
-				const px = PIP_M;
-				const py = PIP_M;
-				if (pipVid && pipVid.readyState >= 2) {
-					ctx.save();
-					ctx.beginPath();
-					ctx.roundRect(px, py, PIP_W, PIP_H, 8);
-					ctx.clip();
-					if (isBackMain) {
-						ctx.translate(px + PIP_W, py);
-						ctx.scale(-1, 1);
-						ctx.drawImage(pipVid, 0, 0, PIP_W, PIP_H);
-					} else {
-						ctx.drawImage(pipVid, px, py, PIP_W, PIP_H);
-					}
-					ctx.restore();
-					ctx.strokeStyle = "rgba(255,255,255,0.6)";
-					ctx.lineWidth = 2;
-					ctx.beginPath();
-					ctx.roundRect(px, py, PIP_W, PIP_H, 8);
-					ctx.stroke();
-				}
-
 				requestAnimationFrame(drawComposite);
 			};
-			drawComposite();
+			requestAnimationFrame(drawComposite);
 
 			const mimeType = getSupportedMimeType();
-			const compositeStream = canvas.captureStream(30);
+			const compositeStream = canvas.captureStream(15);
 			const compositeRecorder = new MediaRecorder(
 				compositeStream,
 				mimeType ? { mimeType } : undefined,
 			);
 			compositeRecorder.ondataavailable = (e) => {
 				if (e.data.size > 0) {
-					compositeChunksRef.current.push(e.data);
+					console.log(`[Composite] chunk ${(e.data.size/1024).toFixed(1)}KB`);
 					streamUpload.pushChunk(e.data);
 				}
 			};
 			compositeRecorder.start(1000);
 			compositeRecorderRef.current = compositeRecorder;
+			console.log("[Composite] recorder started 640x360@15fps");
 		}
 		addLog("Starting session...");
 		client
@@ -492,6 +531,7 @@ export default function RecordView() {
 	]);
 
 	const handleStopRecording = useCallback(async () => {
+		console.log(`[REC] handleStopRecording — elapsed=${recSecondsRef.current}s`);
 		wantRecordingRef.current = false;
 		const duration = frontRecorder.duration || backRecorder.duration || 0;
 
@@ -504,12 +544,9 @@ export default function RecordView() {
 				return;
 			}
 			recorder.onstop = () => {
-				resolve(
-					new Blob(compositeChunksRef.current, {
-						type: recorder.mimeType || "video/webm",
-					}),
-				);
+				// composite was streamed to S3, no local blob needed
 				compositeRecorderRef.current = null;
+				resolve(null);
 			};
 			recorder.stop();
 		});
