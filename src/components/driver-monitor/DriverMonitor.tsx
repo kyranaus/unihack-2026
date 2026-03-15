@@ -6,7 +6,10 @@ import { useCameraDevices } from "#/hooks/use-camera-devices";
 import { useFaceDetection } from "#/hooks/use-face-detection";
 import { useMediaRecorder } from "#/hooks/use-media-recorder";
 import { useSpeed } from "#/hooks/use-speed";
-import { requestMotionPermission, useCrashDetection } from "#/hooks/use-crash-detection";
+import {
+	requestMotionPermission,
+	useCrashDetection,
+} from "#/hooks/use-crash-detection";
 import { useFrameCapture } from "#/hooks/useFrameCapture";
 import { useDriverEventLogger } from "#/hooks/useDriverEventLogger";
 import { driveSessionStore } from "#/hooks/useDriveSession";
@@ -46,10 +49,7 @@ function Sparkline({
 
 	const points = values
 		.map((v, i) => {
-			const x =
-				values.length === 1
-					? width
-					: (i / (values.length - 1)) * width;
+			const x = values.length === 1 ? width : (i / (values.length - 1)) * width;
 			const norm = (v - min) / (max - min);
 			const y = height - norm * height;
 			return `${x.toFixed(1)},${y.toFixed(1)}`;
@@ -95,7 +95,12 @@ export default function DriverMonitor() {
 	const lastSessionIdRef = useRef<string | null>(null);
 
 	const addLog = useCallback((msg: string) => {
-		const ts = new Date().toLocaleTimeString("en-AU", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+		const ts = new Date().toLocaleTimeString("en-AU", {
+			hour12: false,
+			hour: "2-digit",
+			minute: "2-digit",
+			second: "2-digit",
+		});
 		setLiveLog((prev) => [...prev.slice(-19), `[${ts}] ${msg}`]);
 	}, []);
 
@@ -119,7 +124,10 @@ export default function DriverMonitor() {
 		? { deviceId: roadDeviceId }
 		: { facingMode: "environment" as const };
 
-	const frontCamera = useCamera(driverSource);
+	const frontCamera = useCamera(driverSource, true, undefined, {
+		width: 640,
+		height: 480,
+	});
 	const backCamera = useCamera(roadSource, frontCamera.isReady);
 
 	const detection = useFaceDetection(frontCamera.videoRef, canvasRef);
@@ -140,26 +148,41 @@ export default function DriverMonitor() {
 		}
 	}, [liveLog]);
 
-	const handleFrameBatch = useCallback(async (frames: string[]) => {
-		const sessionId = sessionIdRef.current;
-		if (!sessionId) return;
-		try {
-			const result = await client.analyseRoadFrames({
-				sessionId,
-				elapsedSec: Math.floor((Date.now() - (driveSessionStore.state.startedAt ?? Date.now())) / 1000),
-				frames,
-				camera: "front",
-			});
-			if (result.severity !== "info" && result.summary !== lastAISummaryRef.current) {
-				lastAISummaryRef.current = result.summary;
-				addLog(`AI: [${result.severity}] ${result.summary}`);
+	const handleFrameBatch = useCallback(
+		async (frames: string[]) => {
+			const sessionId = sessionIdRef.current;
+			if (!sessionId) return;
+			try {
+				const result = await client.analyseRoadFrames({
+					sessionId,
+					elapsedSec: Math.floor(
+						(Date.now() - (driveSessionStore.state.startedAt ?? Date.now())) /
+							1000,
+					),
+					frames,
+					camera: "front",
+				});
+				if (
+					result.severity !== "info" &&
+					result.summary !== lastAISummaryRef.current
+				) {
+					lastAISummaryRef.current = result.summary;
+					addLog(`AI: [${result.severity}] ${result.summary}`);
+				}
+			} catch (err) {
+				addLog(
+					`AI ERROR: ${err instanceof Error ? err.message : "analysis failed"}`,
+				);
 			}
-		} catch (err) {
-			addLog(`AI ERROR: ${err instanceof Error ? err.message : "analysis failed"}`);
-		}
-	}, [addLog]);
+		},
+		[addLog],
+	);
 
-	useFrameCapture(frontCamera.videoRef, frontRecorder.isRecording, handleFrameBatch);
+	useFrameCapture(
+		frontCamera.videoRef,
+		frontRecorder.isRecording,
+		handleFrameBatch,
+	);
 
 	const { speedKmh, latitude, longitude, accuracy, heading } = useSpeed();
 
@@ -176,14 +199,17 @@ export default function DriverMonitor() {
 						heading,
 						speedKmh,
 					};
-					
+
 					// Store crash location for emergency page
 					try {
-						window.sessionStorage.setItem("dashcam.crashLocation", JSON.stringify(crashLocation));
+						window.sessionStorage.setItem(
+							"dashcam.crashLocation",
+							JSON.stringify(crashLocation),
+						);
 					} catch {
 						// ignore storage errors
 					}
-					
+
 					// Simple prompt-style alert so the driver knows a crash was detected.
 					try {
 						window.alert("Crash detected. Opening emergency screen…");
@@ -228,14 +254,20 @@ export default function DriverMonitor() {
 		frontRecorder.startRecording();
 		backRecorder.startRecording();
 		addLog("Starting session...");
-		client.startSession({}).then(async ({ sessionId }) => {
-			sessionIdRef.current = sessionId;
-			driveSessionStore.setState(() => ({ sessionId, startedAt: Date.now() }));
-			addLog(`Session started: ${sessionId.slice(0, 8)}...`);
-			const mimeType = getSupportedMimeType() || "video/webm";
-			await streamUpload.start(sessionId, "back", mimeType);
-			addLog("Cloud upload streaming...");
-		}).catch((err) => addLog(`Session start FAILED: ${err}`));
+		client
+			.startSession({})
+			.then(async ({ sessionId }) => {
+				sessionIdRef.current = sessionId;
+				driveSessionStore.setState(() => ({
+					sessionId,
+					startedAt: Date.now(),
+				}));
+				addLog(`Session started: ${sessionId.slice(0, 8)}...`);
+				const mimeType = getSupportedMimeType() || "video/webm";
+				await streamUpload.start(sessionId, "back", mimeType);
+				addLog("Cloud upload streaming...");
+			})
+			.catch((err) => addLog(`Session start FAILED: ${err}`));
 	}, [frontRecorder, backRecorder, addLog, streamUpload]);
 
 	const handleStopRecording = useCallback(async () => {
@@ -267,7 +299,10 @@ export default function DriverMonitor() {
 			} finally {
 				setEnding(false);
 				sessionIdRef.current = null;
-				driveSessionStore.setState(() => ({ sessionId: null, startedAt: null }));
+				driveSessionStore.setState(() => ({
+					sessionId: null,
+					startedAt: null,
+				}));
 			}
 		}
 
@@ -326,8 +361,7 @@ export default function DriverMonitor() {
 							<span>ay: {crash.ay?.toFixed(2)}</span>
 							<span>az: {crash.az?.toFixed(2)}</span>
 							<span>
-								speed:{" "}
-								{speedKmh != null ? `${speedKmh.toFixed(1)} km/h` : "–"}
+								speed: {speedKmh != null ? `${speedKmh.toFixed(1)} km/h` : "–"}
 							</span>
 						</div>
 						{debugAccel && isIOS && !motionPermissionHintShown && (
@@ -432,10 +466,20 @@ export default function DriverMonitor() {
 				)}
 
 				{liveLog.length > 0 && (
-					<div ref={liveLogRef} className="absolute inset-x-3 bottom-20 z-20 max-h-28 overflow-y-auto rounded-xl bg-black/80 border border-zinc-700 px-3 py-2 backdrop-blur-sm">
-						<p className="text-[9px] font-semibold uppercase tracking-widest text-zinc-500 mb-1">Live Log</p>
+					<div
+						ref={liveLogRef}
+						className="absolute inset-x-3 bottom-20 z-20 max-h-28 overflow-y-auto rounded-xl bg-black/80 border border-zinc-700 px-3 py-2 backdrop-blur-sm"
+					>
+						<p className="text-[9px] font-semibold uppercase tracking-widest text-zinc-500 mb-1">
+							Live Log
+						</p>
 						{liveLog.map((line, i) => (
-							<p key={i} className="font-mono text-[10px] leading-relaxed text-zinc-300">{line}</p>
+							<p
+								key={i}
+								className="font-mono text-[10px] leading-relaxed text-zinc-300"
+							>
+								{line}
+							</p>
 						))}
 					</div>
 				)}
@@ -463,9 +507,19 @@ export default function DriverMonitor() {
 			{driveSummary && !isRecording && (
 				<div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm">
 					<div className="rounded-2xl border border-white/10 bg-zinc-900 px-6 py-5 mx-4 w-full max-w-sm">
-						<p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500 mb-2">AI Drive Summary</p>
-						<p className="text-sm leading-relaxed text-zinc-200">{driveSummary}</p>
-						<button type="button" onClick={() => setDriveSummary(null)} className="mt-4 w-full rounded-xl bg-white/10 py-3 text-sm font-semibold text-white">Dismiss</button>
+						<p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500 mb-2">
+							AI Drive Summary
+						</p>
+						<p className="text-sm leading-relaxed text-zinc-200">
+							{driveSummary}
+						</p>
+						<button
+							type="button"
+							onClick={() => setDriveSummary(null)}
+							className="mt-4 w-full rounded-xl bg-white/10 py-3 text-sm font-semibold text-white"
+						>
+							Dismiss
+						</button>
 					</div>
 				</div>
 			)}

@@ -347,7 +347,7 @@ function ReplayPage() {
                     const data = await client.getSession({ sessionId: sid });
                     setSessionData({
                       id: data.id,
-                      score: data.score,
+                      score: data.score ?? selected?.meta.score ?? 0,
                       summary: data.summary,
                       cameras: data.cameras,
                       startedAt: data.startedAt.toISOString ? data.startedAt.toISOString() : String(data.startedAt),
