@@ -81,8 +81,6 @@ function ReplayPage() {
   const trackRef = useRef<HTMLDivElement>(null);
   // Tracks blob URLs we created so we can revoke them on unmount
   const blobUrlsRef = useRef<string[]>([]);
-  const drivesRef = useRef<DriveEntry[]>([]);
-
   const loadDrives = useCallback(async () => {
     setLoadingDrives(true);
     try {
@@ -91,13 +89,20 @@ function ReplayPage() {
         client.listDriveSessions({}).catch(() => ({ sessions: [] })),
       ]);
 
-      // Don't load blobs upfront — only store metas, resolve URLs lazily when selected.
-      const localEntries: DriveEntry[] = localMetas.map((meta) => ({
-        meta,
-        url: "",
-        backUrl: null,
-        source: "local" as const,
-      }));
+      const serverSessionMap = new Map(
+        serverResult.sessions.map((s) => [s.id, s]),
+      );
+
+      const localEntries: DriveEntry[] = localMetas.map((meta) => {
+        const serverSession = meta.sessionId ? serverSessionMap.get(meta.sessionId) : undefined;
+        return {
+          meta,
+          url: "",
+          backUrl: null,
+          source: "local" as const,
+          txHash: serverSession?.txHash ?? null,
+        };
+      });
 
       const localSessionIds = new Set(localMetas.map((m) => m.sessionId).filter(Boolean));
       const cloudEntries: DriveEntry[] = serverResult.sessions
@@ -135,11 +140,6 @@ function ReplayPage() {
 
   useEffect(() => { loadDrives(); }, [loadDrives, refreshKey]);
 
-  // Keep drivesRef in sync so the lazy-load effect can read it without depending on `drives`.
-  useEffect(() => {
-    drivesRef.current = drives;
-  }, [drives]);
-
   // Revoke all blob URLs we created when the component unmounts.
   useEffect(() => {
     return () => {
@@ -148,10 +148,11 @@ function ReplayPage() {
   }, []);
 
   // Lazily resolve URL for the selected drive (local blob or cloud signed URL).
-  // Depends only on selectedIdx — NOT on `drives` — so setDrives inside the
-  // .then() callback doesn't trigger a cleanup that revokes the URL we just made.
+  // Depends on selectedIdx AND drives so the effect fires after initial load
+  // when drives are populated. The bail-out check (drive.url truthy) prevents
+  // a feedback loop when setDrives updates the URL.
   useEffect(() => {
-    const drive = drivesRef.current[selectedIdx];
+    const drive = drives[selectedIdx];
     if (!drive || drive.url) return;
 
     let cancelled = false;
@@ -181,7 +182,7 @@ function ReplayPage() {
     }
 
     return () => { cancelled = true; };
-  }, [selectedIdx]);
+  }, [selectedIdx, drives]);
 
   // Reset player state when selected drive changes
   useEffect(() => {
@@ -395,6 +396,7 @@ function ReplayPage() {
                         severity: e.severity,
                         metadata: e.metadata,
                       })),
+                      txHash: (data as any).txHash ?? null,
                     });
                   } catch (err) {
                     console.error("Failed to fetch session:", err);
@@ -435,13 +437,13 @@ function ReplayPage() {
                     <button
                       key={d.meta.id}
                       onClick={() => setSelectedIdx(i)}
-                      className="flex items-center justify-between px-5 py-3 text-left transition hover:bg-secondary/50"
+                      className="flex items-center justify-between px-5 py-3 text-left transition cursor-pointer hover:bg-secondary/50"
                       style={selectedIdx === i ? { backgroundColor: "rgba(234,179,8,0.06)" } : {}}
                     >
                       <div>
                         <p className="text-sm font-semibold">
                           {relDate(d.meta.timestamp)}
-                          {d.source === "cloud" && (
+                          {(
                             <span className="ml-1.5 inline-flex items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary">
                             <Cloud size={9} /> Cloud
                           </span>
