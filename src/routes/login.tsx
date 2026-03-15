@@ -1,9 +1,13 @@
 // src/routes/login.tsx
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
+import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
+import QRCode from "qrcode"
 import { BrandLogo } from "#/components/home/BrandLogo"
 import { authClient } from "#/lib/auth-client"
 import { getSession } from "#/lib/auth-session"
+
+const TARGET_URL = "https://beesafe.unihack.me/"
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -18,6 +22,13 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate()
+  const [qrDataUrl, setQrDataUrl] = useState("")
+
+  useEffect(() => {
+    QRCode.toDataURL(TARGET_URL, { width: 160, margin: 2, color: { dark: "#000000", light: "#FFFFFF" } })
+      .then(setQrDataUrl)
+      .catch(console.error)
+  }, [])
 
   const handleGoogleSignIn = () => {
     authClient.signIn.social({
@@ -62,6 +73,23 @@ function LoginPage() {
           <p className="text-center text-[10px] text-muted-foreground">
             By continuing, you agree to BeeSafe's Terms &amp; Privacy Policy
           </p>
+        </motion.div>
+
+        {/* QR code — desktop only */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 2.2, duration: 0.6 }}
+          className="hidden md:flex flex-col items-center gap-3"
+        >
+          <div className="rounded-2xl border border-border bg-card p-3 shadow-lg">
+            {qrDataUrl ? (
+              <img src={qrDataUrl} alt="Scan to open BeeSafe on mobile" width={160} height={160} className="rounded-xl" />
+            ) : (
+              <div className="h-40 w-40 animate-pulse rounded-xl bg-muted" />
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">Scan to open on your phone</p>
         </motion.div>
       </div>
     </main>

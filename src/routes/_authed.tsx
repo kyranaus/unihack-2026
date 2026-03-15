@@ -4,7 +4,12 @@ import { getSession } from "#/lib/auth-session"
 
 export const Route = createFileRoute("/_authed")({
   beforeLoad: async () => {
-    const session = await getSession()
+    let session = null
+    try {
+      session = await getSession()
+    } catch {
+      throw redirect({ to: "/login", search: { redirect: undefined } })
+    }
 
     if (!session) {
       throw redirect({ to: "/login", search: { redirect: undefined } })

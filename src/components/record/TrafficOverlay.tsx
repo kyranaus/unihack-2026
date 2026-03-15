@@ -289,25 +289,6 @@ export function TrafficOverlay({
 				className={`absolute inset-0 pointer-events-none ${className}`}
 				style={{ zIndex: 12 }}
 			/>
-			<div
-				className="absolute top-3 right-12 z-20 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[9px] font-bold tracking-widest uppercase backdrop-blur-sm select-none pointer-events-none"
-				style={{
-					background: "rgba(0,0,0,0.55)",
-					border: "1px solid rgba(255,255,255,0.12)",
-					color: modelLoading
-						? "rgba(255,255,255,0.5)"
-						: modelReady
-							? "#4ade80"
-							: "rgba(255,255,255,0.3)",
-				}}
-			>
-				<span
-					className={`h-1.5 w-1.5 rounded-full ${modelLoading ? "animate-pulse bg-yellow-400" : modelReady ? "bg-green-400" : "bg-zinc-500"}`}
-				/>
-				{modelLoading
-					? "AI Loading…"
-					: `Traffic AI${detections.length > 0 ? ` · ${detections.length}` : ""}`}
-			</div>
 		</>
 	);
 }
