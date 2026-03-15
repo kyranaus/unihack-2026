@@ -171,8 +171,6 @@ export default function RecordView() {
 	const [liveLog, setLiveLog] = useState<string[]>([]);
 	const [showTraffic, setShowTraffic] = useState(false);
 	const [showTrafficWarning, setShowTrafficWarning] = useState(false);
-	const [controlsVisible, setControlsVisible] = useState(true);
-	const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	// Emergency overlay
 	const [emergencyTriggered, setEmergencyTriggered] = useState(false);
