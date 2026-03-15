@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "@tanstack/react-router";
+import { toast } from "sonner";
 import type {
 	DriverState,
 	EarCalibration,
@@ -54,7 +56,6 @@ import { useTrafficDetection } from "#/hooks/use-traffic-detection";
 import { TrafficOverlay } from "#/components/record/TrafficOverlay";
 import { usePulloverSuggestion } from "#/hooks/usePulloverSuggestion";
 import { PulloverSuggestion } from "#/components/PulloverSuggestion";
-import { NavBrand } from "./NavBrand";
 
 const MAX_RECORD_SECS = 5 * 60;
 const ALARM_SRC = "/denielcz-speed-limit-violation-alert-463066.mp3";
@@ -104,6 +105,7 @@ export default function RecordView() {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const alarmRef = useRef<HTMLAudioElement | null>(null);
 	const queryClient = useQueryClient();
+	const router = useRouter();
 
 	// Camera mode: dual (Android/desktop) vs single (iOS / fallback)
 	const { mode: cameraMode, isIOS, downgradeToSingle } = useCameraMode();
@@ -150,7 +152,6 @@ export default function RecordView() {
 
 	// State
 	const [pendingRec, setPendingRec] = useState<PendingRecording | null>(null);
-	const [savedToast, setSavedToast] = useState(false);
 	const [driverState, setDriverState] = useState<DriverState>("NO_FACE");
 	const [metrics, setMetrics] = useState<SmoothedMetrics>({
 		ear: 0,
@@ -633,17 +634,17 @@ export default function RecordView() {
 		const mainBlob = pendingRec.frontBlob ?? pendingRec.blob;
 		saveRecording(mainBlob, pendingRec.duration, pendingRec.mimeType, lastSessionIdRef.current, sessionScore, pendingRec.backBlob, pendingRec.speedTrack)
 			.catch(console.error);
-		setSavedToast(true);
+		toast.success("Video saved", {
+			description: "Your recording has been saved locally.",
+			action: {
+				label: "View Replays",
+				onClick: () => router.navigate({ to: "/replay" }),
+			},
+		});
 		setPendingRec(null);
 		setSessionScore(null);
 		lastSessionIdRef.current = null;
-	}, [pendingRec]);
-
-	useEffect(() => {
-		if (!savedToast) return;
-		const t = setTimeout(() => setSavedToast(false), 3000);
-		return () => clearTimeout(t);
-	}, [savedToast]);
+	}, [pendingRec, router]);
 
 	// Keep ref up-to-date for auto-stop timer
 	handleStopRecordingRef.current = handleStopRecording;
@@ -1036,16 +1037,9 @@ export default function RecordView() {
 	}
 
 	return (
-		<div className="flex h-full min-h-0 flex-col px-4 bg-background">
-			{/* Title */}
-			<div
-				className="flex flex-none items-center justify-between px-4 pb-2"
-				style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
-			>
-			</div>
-
+		<div className="flex h-full min-h-0 flex-col px-4 bg-background mt-4">
 			{/* Video window */}
-			<div className="relative mx-auto mb-2 mt-1 h-[58vh] w-full max-w-3xl flex-none overflow-hidden rounded-2xl bg-zinc-900">
+			<div className="relative mx-auto mb-2 mt-1 h-[52vh] w-full max-w-3xl flex-none overflow-hidden rounded-2xl bg-zinc-900">
 
 				{/* Back camera — main in back mode, PiP in dual front mode, hidden in single front mode */}
 				<video
@@ -1164,15 +1158,6 @@ export default function RecordView() {
 						</div>
 					)}
 
-				{/* Driver monitoring paused banner — single-cam mode, back camera active */}
-				{!loading && isSingleCam && activeCamera === "back" && (
-					<div className="absolute left-4 top-4 z-10">
-						<div className="rounded-full bg-black/60 px-3 py-1.5 text-[10px] font-medium text-white/60 backdrop-blur-sm">
-							Driver monitoring paused
-						</div>
-					</div>
-				)}
-
 				{/* Metrics strip */}
 				{!loading && (
 					<div className="absolute bottom-0 left-0 right-0 z-10 flex flex-col bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-8 pr-16">
@@ -1266,15 +1251,6 @@ export default function RecordView() {
 					/>
 				)}
 
-				{/* Switch camera */}
-				<button
-					type="button"
-					onClick={handleFlipCamera}
-					className="absolute bottom-3 right-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm transition-transform active:scale-95"
-				>
-					<RefreshCw size={18} />
-				</button>
-
 				{/* Debug accelerometer panel (?debugAccel=1) */}
 				{debugAccel && crash.currentG !== null && (
 					<div className="absolute left-3 bottom-16 z-20 max-w-[60%] rounded-xl bg-black/80 px-3 py-2 text-[10px] text-white/80 backdrop-blur-md">
@@ -1333,36 +1309,49 @@ export default function RecordView() {
 
 			{/* Controls */}
 			<div className="flex flex-none flex-col items-center gap-3 pb-4 pt-2">
-				<button
-					type="button"
-					onClick={() =>
-						isRecording ? handleStopRecording() : handleStartRecording()
-					}
-					disabled={loading}
-					className={`flex h-20 w-20 items-center justify-center rounded-full border-4 border-foreground transition-transform active:scale-95 disabled:opacity-30 ${isRecording ? "animate-pulse" : ""}`}
-					aria-label={isRecording ? "Stop recording" : "Start recording"}
-				>
-					<span
-						className={`bg-red-500 transition-all duration-200 ${isRecording ? "h-8 w-8 rounded-lg" : "h-14 w-14 rounded-full"}`}
-					/>
-				</button>
-
-				{/* Object detection toggle */}
-				<div className="flex w-full items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
-					<div>
-						<p className="text-sm font-medium text-foreground">Object Detection</p>
-						<p className="text-xs text-muted-foreground">Detects vehicles, pedestrians &amp; signs</p>
-					</div>
+				<div className="flex w-full items-center justify-center gap-5">
+					{/* Object detection — compact labeled switch */}
 					<button
 						type="button"
 						onClick={() => {
 							if (!showTraffic) setShowTrafficWarning(true);
 							else setShowTraffic(false);
 						}}
-						className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${showTraffic ? "bg-primary" : "bg-muted"}`}
+						className="flex items-center gap-2 rounded-full bg-muted px-3 py-2 active:scale-95 transition-transform"
 						aria-label="Toggle object detection"
 					>
-						<span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${showTraffic ? "translate-x-6" : "translate-x-1"}`} />
+						<span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">Detect</span>
+						<span className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${showTraffic ? "bg-primary" : "bg-border"}`}>
+							<span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${showTraffic ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
+						</span>
+					</button>
+
+					{/* Record button */}
+					<button
+						type="button"
+						onClick={() =>
+							isRecording ? handleStopRecording() : handleStartRecording()
+						}
+						disabled={loading}
+						className={`flex h-16 w-16 items-center justify-center rounded-full border-4 border-foreground transition-transform active:scale-95 disabled:opacity-30 ${isRecording ? "animate-pulse" : ""}`}
+						aria-label={isRecording ? "Stop recording" : "Start recording"}
+					>
+						<span
+							className={`bg-red-500 transition-all duration-200 ${isRecording ? "h-6 w-6 rounded-md" : "h-11 w-11 rounded-full"}`}
+						/>
+					</button>
+
+					{/* Flip camera + active label */}
+					<button
+						type="button"
+						onClick={handleFlipCamera}
+						className="flex items-center gap-2 rounded-full bg-muted px-3 py-2 text-muted-foreground transition-transform active:scale-95"
+						aria-label="Switch camera"
+					>
+						<RefreshCw size={16} />
+						<span className="text-[11px] font-medium whitespace-nowrap">
+							{activeCamera === "back" ? "Road" : "Driver"}
+						</span>
 					</button>
 				</div>
 
@@ -1374,14 +1363,20 @@ export default function RecordView() {
 					<p className="mb-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
 						Live Log
 					</p>
-					{liveLog.map((line, i) => (
-						<p
-							key={i}
-							className="font-mono text-[10px] leading-relaxed text-foreground/70"
-						>
-							{line}
+					{liveLog.length === 0 ? (
+						<p className="font-mono text-[10px] leading-relaxed text-muted-foreground/60 italic">
+							Press record to start a session…
 						</p>
-					))}
+					) : (
+						liveLog.map((line, i) => (
+							<p
+								key={i}
+								className="font-mono text-[10px] leading-relaxed text-foreground/70"
+							>
+								{line}
+							</p>
+						))
+					)}
 				</div>
 			</div>
 
@@ -1406,7 +1401,7 @@ export default function RecordView() {
 				</div>
 			)}
 
-			{/* Object detection hardware warning */}
+			{/* Object detection warning */}
 			{showTrafficWarning && (
 				<div className="fixed inset-0 z-[90] flex items-end justify-center p-4 bg-black/60 backdrop-blur-sm">
 					<div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl">
@@ -1417,9 +1412,12 @@ export default function RecordView() {
 								</svg>
 							</div>
 							<div>
-								<h3 className="text-sm font-semibold text-foreground">Hardware Requirement</h3>
+								<h3 className="text-sm font-semibold text-foreground">Object Detection</h3>
 								<p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-									Object detection runs a real-time neural network on your device. On devices without dedicated AI or GPU hardware, this may significantly reduce performance during recording.
+									Runs a neural network on-device. May reduce performance on older hardware.
+								</p>
+								<p className="mt-2 text-xs font-semibold text-amber-500">
+									⚠ Road camera only — won't work when the driver-facing camera is active.
 								</p>
 							</div>
 						</div>
@@ -1436,17 +1434,9 @@ export default function RecordView() {
 								onClick={() => { setShowTraffic(true); setShowTrafficWarning(false); }}
 								className="flex-1 rounded-xl bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-colors active:opacity-70"
 							>
-								Enable Anyway
+								Enable
 							</button>
 						</div>
-					</div>
-				</div>
-			)}
-
-			{savedToast && (
-				<div className="fixed bottom-28 inset-x-0 flex justify-center z-50 pointer-events-none">
-					<div className="rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-white dark:text-black shadow-lg">
-						Video saved
 					</div>
 				</div>
 			)}

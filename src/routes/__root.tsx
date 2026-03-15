@@ -6,6 +6,7 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { Navbar } from '../components/Navbar'
+import { Toaster } from '../components/ui/sonner'
 
 import TanStackQueryProvider from '../integrations/tanstack-query/root-provider'
 
@@ -57,6 +58,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <TanStackQueryProvider>
           {children}
         </TanStackQueryProvider>
+        <Toaster position="top-right" />
         <Scripts />
       </body>
     </html>
