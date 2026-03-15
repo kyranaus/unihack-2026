@@ -79,6 +79,9 @@ function ReplayPage() {
   const frontVideoRef = useRef<HTMLVideoElement>(null);
   const backVideoRef = useRef<HTMLVideoElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  // Tracks blob URLs we created so we can revoke them on unmount
+  const blobUrlsRef = useRef<string[]>([]);
+  const drivesRef = useRef<DriveEntry[]>([]);
 
   const loadDrives = useCallback(async () => {
     setLoadingDrives(true);
@@ -88,14 +91,13 @@ function ReplayPage() {
         client.listDriveSessions({}).catch(() => ({ sessions: [] })),
       ]);
 
-      const localEntries: DriveEntry[] = await Promise.all(
-        localMetas.map(async (meta) => {
-          const rec = await getRecording(meta.id);
-          const url = rec ? URL.createObjectURL(rec.videoBlob) : "";
-          const backUrl = rec?.backVideoBlob ? URL.createObjectURL(rec.backVideoBlob) : null;
-          return { meta, url, backUrl, source: "local" as const, speedTrack: rec?.speedTrack };
-        }),
-      );
+      // Don't load blobs upfront — only store metas, resolve URLs lazily when selected.
+      const localEntries: DriveEntry[] = localMetas.map((meta) => ({
+        meta,
+        url: "",
+        backUrl: null,
+        source: "local" as const,
+      }));
 
       const localSessionIds = new Set(localMetas.map((m) => m.sessionId).filter(Boolean));
       const cloudEntries: DriveEntry[] = serverResult.sessions
@@ -122,15 +124,7 @@ function ReplayPage() {
         (a, b) => b.meta.timestamp - a.meta.timestamp,
       );
 
-      setDrives((prev) => {
-        prev.forEach((d) => {
-          if (d.source === "local") {
-            if (d.url) URL.revokeObjectURL(d.url);
-            if (d.backUrl) URL.revokeObjectURL(d.backUrl);
-          }
-        });
-        return all;
-      });
+      setDrives(all);
       setSelectedIdx(0);
     } catch (e) {
       console.error("Failed to load recordings", e);
@@ -141,11 +135,53 @@ function ReplayPage() {
 
   useEffect(() => { loadDrives(); }, [loadDrives, refreshKey]);
 
+  // Keep drivesRef in sync so the lazy-load effect can read it without depending on `drives`.
   useEffect(() => {
-    const onFocus = () => loadDrives();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [loadDrives]);
+    drivesRef.current = drives;
+  }, [drives]);
+
+  // Revoke all blob URLs we created when the component unmounts.
+  useEffect(() => {
+    return () => {
+      for (const url of blobUrlsRef.current) URL.revokeObjectURL(url);
+    };
+  }, []);
+
+  // Lazily resolve URL for the selected drive (local blob or cloud signed URL).
+  // Depends only on selectedIdx — NOT on `drives` — so setDrives inside the
+  // .then() callback doesn't trigger a cleanup that revokes the URL we just made.
+  useEffect(() => {
+    const drive = drivesRef.current[selectedIdx];
+    if (!drive || drive.url) return;
+
+    let cancelled = false;
+
+    if (drive.source === "local") {
+      getRecording(drive.meta.id).then((rec) => {
+        if (cancelled || !rec) return;
+        const url = URL.createObjectURL(rec.videoBlob);
+        const backUrl = rec.backVideoBlob ? URL.createObjectURL(rec.backVideoBlob) : null;
+        blobUrlsRef.current.push(url);
+        if (backUrl) blobUrlsRef.current.push(backUrl);
+        setDrives((prev) =>
+          prev.map((d) =>
+            d.meta.id === drive.meta.id
+              ? { ...d, url, backUrl, speedTrack: rec.speedTrack }
+              : d,
+          ),
+        );
+      }).catch((err) => console.error("Failed to load local recording:", err));
+    } else if (drive.source === "cloud" && drive.videoKey) {
+      client.getVideoDownloadUrl({ key: drive.videoKey }).then(({ url }) => {
+        if (cancelled) return;
+        setDrives((prev) =>
+          prev.map((d) => (d.videoKey === drive.videoKey ? { ...d, url } : d)),
+        );
+      }).catch((err) => console.error("Failed to get cloud video URL:", err));
+    }
+
+    return () => { cancelled = true; };
+  }, [selectedIdx]);
 
   // Reset player state when selected drive changes
   useEffect(() => {
@@ -154,19 +190,6 @@ function ReplayPage() {
     setDuration(drives[selectedIdx]?.meta.duration ?? 0);
     setActiveCamera(drives[selectedIdx]?.backUrl ? "back" : "front");
   }, [selectedIdx, drives]);
-
-  // Lazily resolve cloud video URL when a cloud drive is selected
-  useEffect(() => {
-    const drive = drives[selectedIdx];
-    if (drive?.source === "cloud" && !drive.url && drive.videoKey) {
-      const key = drive.videoKey;
-      client.getVideoDownloadUrl({ key }).then(({ url }) => {
-        setDrives((prev) =>
-          prev.map((d) => (d.videoKey === key ? { ...d, url } : d)),
-        );
-      }).catch((err) => console.error("Failed to get cloud video URL:", err));
-    }
-  }, [selectedIdx]);
 
   const getPercent = () => (duration > 0 ? (currentTime / duration) * 100 : 0);
 
@@ -234,16 +257,22 @@ function ReplayPage() {
                       : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
                     onClick={() => activeCamera === "back" && setActiveCamera("front")}
                     playsInline
+                    preload="auto"
                     onLoadedMetadata={() => {
                       const vidDuration = frontVideoRef.current?.duration;
                       setDuration(
-                        vidDuration && Number.isFinite(vidDuration) 
-                          ? vidDuration 
+                        vidDuration && Number.isFinite(vidDuration)
+                          ? vidDuration
                           : selected.meta.duration
                       );
                     }}
                     onTimeUpdate={() => setCurrentTime(frontVideoRef.current?.currentTime ?? 0)}
                     onEnded={() => setPlaying(false)}
+                    onWaiting={() => {
+                      // Resume after a stall — common with MediaRecorder WebM files that lack seek tables
+                      const v = frontVideoRef.current;
+                      if (v) v.play().catch(() => {});
+                    }}
                   />
 
                   {/* Back cam (PiP — only if available) */}
@@ -257,6 +286,11 @@ function ReplayPage() {
                         : "absolute top-3 left-3 z-10 h-28 w-20 cursor-pointer rounded-xl object-cover ring-2 ring-white/30"}
                       onClick={() => activeCamera === "front" && setActiveCamera("back")}
                       playsInline
+                      preload="auto"
+                      onWaiting={() => {
+                        const v = backVideoRef.current;
+                        if (v) v.play().catch(() => {});
+                      }}
                     />
                   )}
                 </>
