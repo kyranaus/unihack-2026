@@ -52,6 +52,8 @@ import type { PendingRecording } from "#/hooks/useRecording";
 import { DriverFeedback, type SessionData } from "#/components/DriverFeedback";
 import { useTrafficDetection } from "#/hooks/use-traffic-detection";
 import { TrafficOverlay } from "#/components/record/TrafficOverlay";
+import { useRoadBehavior } from "#/hooks/use-road-behavior";
+import { useRoadBehaviorLogger } from "#/hooks/useRoadBehaviorLogger";
 import { usePulloverSuggestion } from "#/hooks/usePulloverSuggestion";
 import { PulloverSuggestion } from "#/components/PulloverSuggestion";
 import { NavBrand } from "./NavBrand";
@@ -1021,7 +1023,10 @@ export default function RecordView() {
 		detections: trafficDets,
 		modelReady: trafficReady,
 		modelLoading: trafficLoading,
-	} = useTrafficDetection(backCamera.videoRef, trafficEnabled);
+	} = useTrafficDetection(backCamera.videoRef, trafficEnabled, { intervalMs: 200 });
+
+	const roadBehavior = useRoadBehavior(trafficDets, trafficEnabled);
+	useRoadBehaviorLogger(roadBehavior, "back");
 
 	if (error) {
 		return (

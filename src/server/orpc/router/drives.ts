@@ -80,7 +80,7 @@ export const logDriverEvent = os
     z.object({
       sessionId: z.string(),
       elapsedSec: z.number().int(),
-      type: z.enum(["driver_state", "crash", "harsh_braking"]),
+      type: z.enum(["driver_state", "crash", "harsh_braking", "rapid_acceleration", "close_following"]),
       summary: z.string(),
       severity: z.enum(["info", "warning", "critical"]),
       camera: cameraEnum,
@@ -128,6 +128,12 @@ function computeScore(
       else if (e.severity === "critical") score -= 12
     } else if (e.type === "crash") {
       score -= 80
+    } else if (e.type === "harsh_braking") {
+      score -= 5
+    } else if (e.type === "rapid_acceleration") {
+      score -= 3
+    } else if (e.type === "close_following") {
+      score -= 4
     }
   }
 

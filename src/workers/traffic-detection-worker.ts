@@ -248,7 +248,6 @@ self.addEventListener("message", async (event: MessageEvent) => {
 
 			const opts: InferenceSession.SessionOptions = {
 				executionProviders: [backend as any],
-				enableGraphCapture: backend === "webgpu",
 			};
 
 			session = await InferenceSession.create(modelUrl, opts);
