@@ -45,7 +45,7 @@ import {
 import { driveSessionStore } from "#/hooks/useDriveSession";
 import { client } from "#/server/orpc/client";
 import { getSupportedMimeType } from "#/lib/media-utils";
-import { SaveRecordingDialog } from "#/components/SaveRecordingDialog";
+import { saveRecording } from "#/lib/replay-store";
 import { CameraPicker } from "#/components/driver-monitor/CameraPicker";
 import { useStreamingUpload } from "#/hooks/use-streaming-upload";
 import type { PendingRecording } from "#/hooks/useRecording";
@@ -150,6 +150,7 @@ export default function RecordView() {
 
 	// State
 	const [pendingRec, setPendingRec] = useState<PendingRecording | null>(null);
+	const [savedToast, setSavedToast] = useState(false);
 	const [driverState, setDriverState] = useState<DriverState>("NO_FACE");
 	const [metrics, setMetrics] = useState<SmoothedMetrics>({
 		ear: 0,
@@ -627,6 +628,24 @@ export default function RecordView() {
 
 		setLiveLog([]);
 	}, [frontRecorder, backRecorder, addLog, queryClient, streamUpload]);
+
+	// Auto-save recording and show toast when a new recording is ready
+	useEffect(() => {
+		if (!pendingRec) return;
+		const mainBlob = pendingRec.frontBlob ?? pendingRec.blob;
+		saveRecording(mainBlob, pendingRec.duration, pendingRec.mimeType, lastSessionIdRef.current, sessionScore, pendingRec.backBlob, pendingRec.speedTrack)
+			.catch(console.error);
+		setSavedToast(true);
+		setPendingRec(null);
+		setSessionScore(null);
+		lastSessionIdRef.current = null;
+	}, [pendingRec]);
+
+	useEffect(() => {
+		if (!savedToast) return;
+		const t = setTimeout(() => setSavedToast(false), 3000);
+		return () => clearTimeout(t);
+	}, [savedToast]);
 
 	// Keep ref up-to-date for auto-stop timer
 	handleStopRecordingRef.current = handleStopRecording;
@@ -1435,17 +1454,12 @@ export default function RecordView() {
 				</div>
 			)}
 
-			{pendingRec && (
-				<SaveRecordingDialog
-					pending={pendingRec}
-					sessionId={lastSessionIdRef.current}
-					score={sessionScore}
-					onDone={() => {
-						setPendingRec(null);
-						setSessionScore(null);
-						lastSessionIdRef.current = null;
-					}}
-				/>
+			{savedToast && (
+				<div className="fixed bottom-28 inset-x-0 flex justify-center z-50 pointer-events-none">
+					<div className="rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-white dark:text-black shadow-lg">
+						Video saved
+					</div>
+				</div>
 			)}
 
 			<PulloverSuggestion
