@@ -1063,7 +1063,7 @@ export default function RecordView() {
 	return (
 		<div className="flex h-full min-h-0 flex-col px-4 bg-background mt-4">
 			{/* Video window */}
-			<div className="relative mx-auto mb-2 mt-1 h-[52vh] w-full max-w-3xl flex-none overflow-hidden rounded-2xl bg-zinc-900">
+			<div className="relative mx-auto mb-2 mt-1 h-[48vh] w-full max-w-3xl flex-none overflow-hidden rounded-2xl bg-zinc-900">
 
 				{/* Back camera — main in back mode, PiP in dual front mode, hidden in single front mode */}
 				<video

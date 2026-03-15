@@ -1,6 +1,6 @@
 // src/components/Navbar.tsx
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { Home, Video, PlaySquare, User, Trophy } from "lucide-react";
+import { Home, Video, PlaySquare, User, Trophy, TriangleAlert } from "lucide-react";
 import { NavBrand } from "./NavBrand";
 import { InteractiveMenu, type InteractiveMenuItem } from "./ui/modern-mobile-menu";
 
@@ -38,6 +38,12 @@ export function Navbar() {
       <header className="flex fixed top-0 left-0 right-0 z-50 items-center justify-between min-h-16 px-8 py-3 border-b border-border bg-background/80 backdrop-blur-md">
         {/* Brand */}
         <NavBrand />
+
+        {/* iOS disclaimer — mobile only */}
+        <span className="flex md:hidden items-center gap-1.5 text-[11px] text-muted-foreground">
+          <TriangleAlert size={13} className="text-primary shrink-0" />
+          Some features unstable on iOS
+        </span>
 
         {/* Nav links — hidden on mobile */}
         <nav className="hidden md:flex items-center gap-1">

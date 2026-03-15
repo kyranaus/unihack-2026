@@ -132,14 +132,14 @@ function App() {
       <div className="md:hidden relative mx-auto h-full max-w-md px-4 z-10">
 
         {/* Zone 1 — BeeSafe logo, top 12% */}
-        <div className="absolute inset-x-0 flex justify-center" style={{ top: "12%" }}>
+        <div className="absolute inset-x-0 flex justify-center" style={{ top: "6%" }}>
           <BrandLogo />
         </div>
 
         {/* Zone 2 — Big bee, flies in at 32% — well clear of logo above and text below */}
         <motion.div
           className="absolute pointer-events-none"
-          style={{ top: "32%" }}
+          style={{ top: "26%" }}
           initial={{ x: "-160px" }}
           animate={{ x: "calc(35vw)" }}
           transition={{ duration: 3, ease: "easeOut" }}
@@ -153,7 +153,7 @@ function App() {
         </motion.div>
 
         {/* Zone 3 — Welcome text, 56% — always below bee (bee top 32% + 90px + 18px float ≈ 50%) */}
-        <div className="absolute inset-x-0 flex flex-col items-center gap-1" style={{ top: "56%" }}>
+        <div className="absolute inset-x-0 flex flex-col items-center gap-1" style={{ top: "50%" }}>
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -172,7 +172,7 @@ function App() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 2.0, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          className="absolute bottom-32 left-0 right-0 flex justify-center px-4"
+          className="absolute bottom-54 left-0 right-0 flex justify-center px-4"
         >
           <button
             onClick={() => navigate({ to: "/driver-monitor" })}
