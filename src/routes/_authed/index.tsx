@@ -131,11 +131,11 @@ function App() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-background text-foreground relative">
+    <main className="h-dvh overflow-hidden bg-background text-foreground relative">
       <BeeAnimations />
 
       {/* ── Desktop splash (hidden on mobile) ── */}
-      <div className="hidden md:flex min-h-screen flex-col items-center justify-center gap-10 px-8 pt-14 relative z-10">
+      <div className="hidden md:flex h-full flex-col items-center justify-center gap-10 px-8 pt-14 relative z-10">
         <BrandLogo />
         <div className="flex flex-col items-center gap-4">
           {/* QR code */}
@@ -164,18 +164,18 @@ function App() {
       </div>
 
       {/* ── Mobile app (hidden on desktop) ── */}
-      <div className="md:hidden relative mx-auto min-h-screen max-w-md px-4 pb-28 z-10">
+      <div className="md:hidden relative mx-auto h-full max-w-md px-4 z-10">
 
         {/* Big bee — scrolls with content, positioned below username */}
         <motion.div
           className="absolute pointer-events-none"
           style={{ top: beeTop || "60%" }}
           initial={{ x: "-160px" }}
-          animate={{ x: "calc(40vw)" }}
-          transition={{ duration: 4, ease: "easeOut" }}
+          animate={{ x: "calc(35vw)" }}
+          transition={{ duration: 3, ease: "easeOut" }}
         >
           <motion.div
-            animate={{ y: [0, -5, 0, 5, 0] }}
+            animate={{ y: [0, -20, 0, 20, 0] }}
             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           >
             <DotLottieReact src="/flyingBee.lottie" autoplay loop style={{ width: 90, height: 90 }} />
@@ -195,7 +195,7 @@ function App() {
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 2.0, duration: 0.6, ease: "easeOut" }}
+              transition={{ delay: 1.3, duration: 1, ease: "easeOut" }}
               className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground"
             >
               Welcome back
@@ -212,7 +212,7 @@ function App() {
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 3.6, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ delay:2.0, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
           className="absolute bottom-32 left-0 right-0 flex justify-center px-4"
         >
           <button
