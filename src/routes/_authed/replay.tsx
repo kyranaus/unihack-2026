@@ -207,8 +207,8 @@ function ReplayPage() {
   const dateStr = selected ? new Date(selected.meta.timestamp).toISOString().slice(0, 10) : "recording";
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto w-full max-w-md md:max-w-5xl px-4 md:px-8 pt-10 md:pt-20 pb-32 md:pb-12 flex flex-col gap-4">
+    <main className="min-h-0 bg-background text-foreground">
+      <div className="mx-auto w-full max-w-3xl px-8 pt-4 pb-32 md:pb-12 flex flex-col gap-4">
 
         <header className="mb-2 shrink-0">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">DashCam</p>

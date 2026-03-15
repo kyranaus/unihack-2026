@@ -163,7 +163,8 @@ export function useStreamingUpload() {
 				);
 			}
 
-			if (state.bufferSize >= MIN_PART_SIZE && state.inflightParts === 0) {
+			// Allow up to 2 concurrent part uploads to prevent unbounded buffer growth on slow connections
+			if (state.bufferSize >= MIN_PART_SIZE && state.inflightParts < 2) {
 				flushPart(state);
 			}
 		},

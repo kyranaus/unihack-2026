@@ -120,13 +120,15 @@ export function useTrafficDetection(
 
 		// Mark pending immediately — before the async createImageBitmap — so the
 		// rAF loop cannot queue a second frame while this one is being prepared.
+
 		pendingRef.current = true;
 		try {
 			const bitmap = await createImageBitmap(video);
 			const id = ++idRef.current;
 			worker.postMessage({ type: "DETECT", bitmap, confThresh, id }, [bitmap]);
 		} catch {
-			pendingRef.current = false; // unblock on capture error
+			pendingRef.current = false;
+
 		}
 	}, [videoRef, confThresh]);
 

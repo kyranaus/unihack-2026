@@ -308,6 +308,7 @@ export function TrafficOverlay({
 					? "AI Loading…"
 					: `Traffic AI${detections.length > 0 ? ` · ${detections.length}` : ""}`}
 			</div>
+
 		</>
 	);
 }

@@ -27,8 +27,11 @@ export function useMediaRecorder(stream: MediaStream | null, options?: Options) 
 
 		recorder.ondataavailable = (e) => {
 			if (e.data.size > 0) {
-				chunksRef.current.push(e.data);
 				onChunkRef.current?.(e.data);
+				// Only accumulate locally when not streaming (no onChunk callback)
+				if (!onChunkRef.current) {
+					chunksRef.current.push(e.data);
+				}
 			}
 		};
 
@@ -51,9 +54,14 @@ export function useMediaRecorder(stream: MediaStream | null, options?: Options) 
 			}
 
 			recorder.onstop = () => {
+				if (chunksRef.current.length === 0) {
+					resolve(null);
+					return;
+				}
 				const blob = new Blob(chunksRef.current, {
 					type: recorder.mimeType || "video/webm",
 				});
+				chunksRef.current = [];
 				resolve(blob);
 			};
 
