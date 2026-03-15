@@ -1008,15 +1008,6 @@ export default function RecordView() {
 
 			{/* Video window */}
 			<div className="relative mx-auto mb-2 mt-1 h-[58vh] w-full max-w-3xl flex-none overflow-hidden rounded-2xl bg-zinc-900">
-				{/* Crash banner */}
-				{crash.isCrashLikely && (
-					<div className="absolute inset-x-0 top-0 z-30 flex justify-center px-4 pt-3">
-						<div className="flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-lg">
-							<span className="h-2 w-2 animate-pulse rounded-full bg-white" />
-							Crash detected — opening emergency screen…
-						</div>
-					</div>
-				)}
 
 				{/* Back camera — main in back mode, PiP in dual front mode, hidden in single front mode */}
 				<video
